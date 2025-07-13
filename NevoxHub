@@ -1,11 +1,22 @@
-local allowedPlaceIds = {
+local placeId = game.PlaceId
+
+local scriptAPlaceIds = {
     [109983668079237] = true,
     [96342491571673] = true,
     [128762245270197] = true,
 }
 
-if allowedPlaceIds[game.PlaceId] then
+local scriptBPlaceIds = {
+    [99567941238278] = true,
+    [125009265613167] = true,
+}
+
+if scriptAPlaceIds[placeId] then
     loadstring(game:HttpGet("https://raw.githubusercontent.com/Scripting137/Nevox/main/Steal%20A%20brainrot"))()
+
+elseif scriptBPlaceIds[placeId] then
+    -- loadstring(game:HttpGet("https://example.com/scriptB.lua"))()
 else
+    -- Kick player with custom message
     game.Players.LocalPlayer:Kick("GAME NOT SUPPORTED\nJoin the Discord to see supported games:\ndiscord.gg/FcUtaMfZkM")
 end
