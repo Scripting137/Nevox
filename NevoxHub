@@ -1,3 +1,11 @@
-if game.PlaceId == 109983668079237 or game.PlaceId == 96342491571673 or game.PlaceId == 128762245270197 then
+local allowedPlaceIds = {
+    [109983668079237] = true,
+    [96342491571673] = true,
+    [128762245270197] = true,
+}
+
+if allowedPlaceIds[game.PlaceId] then
     loadstring(game:HttpGet("https://raw.githubusercontent.com/Scripting137/Nevox/main/Steal%20A%20brainrot"))()
+else
+    game.Players.LocalPlayer:Kick("Game not supported")
 end
