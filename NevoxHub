@@ -7,5 +7,5 @@ local allowedPlaceIds = {
 if allowedPlaceIds[game.PlaceId] then
     loadstring(game:HttpGet("https://raw.githubusercontent.com/Scripting137/Nevox/main/Steal%20A%20brainrot"))()
 else
-    game.Players.LocalPlayer:Kick("Game not supported")
+    game.Players.LocalPlayer:Kick("GAME NOT SUPPORTED\nJoin the Discord to see supported games:\ndiscord.gg/FcUtaMfZkM")
 end
