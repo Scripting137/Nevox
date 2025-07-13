@@ -1,3 +1,3 @@
-if game.PlaceId == 109983668079237 then
+if game.PlaceId == 109983668079237 or game.PlaceId == 96342491571673 or game.PlaceId == 128762245270197 then
     loadstring(game:HttpGet("https://raw.githubusercontent.com/Scripting137/Nevox/main/Steal%20A%20brainrot"))()
 end
