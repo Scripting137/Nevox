@@ -15,7 +15,7 @@ if scriptAPlaceIds[placeId] then
     loadstring(game:HttpGet("https://raw.githubusercontent.com/Scripting137/Nevox/main/Steal%20A%20brainrot"))()
 
 elseif scriptBPlaceIds[placeId] then
-    -- loadstring(game:HttpGet("https://example.com/scriptB.lua"))()
+    -- loadstring(game:HttpGet("https://raw.githubusercontent.com/Scripting137/Nevox/refs/heads/main/Ink%20Games"))()
 else
     -- Kick player with custom message
     game.Players.LocalPlayer:Kick("GAME NOT SUPPORTED\nJoin the Discord to see supported games:\ndiscord.gg/FcUtaMfZkM")
