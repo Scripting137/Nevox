@@ -14,7 +14,7 @@ local Linkvertise_Enabled = false
 local Linkvertise_Link = ""
 
 local Lootlabs_Enabled = true   
-local Lootlabs_Link = "https://lootdest.org/s?ilOnra52"
+local Lootlabs_Link = "https://lootdest.org/s?LIcVVhMi"
 
 makefolder(Hub)
 local key_path = Hub .. "/Key.txt"
