@@ -6,7 +6,7 @@ until game:IsLoaded()
 
 -- Replace These Variables
 local Hub = "Nevox Hub"
-local Hub_Script_ID = "65291482b68265905d674e3613bf72d0"
+local Hub_Script_ID = "455ffe3be03850d1c8ecf989cbcc49ce"
 local Discord_Invite = "https://discord.gg/xTPyCTuKBE"
 local UI_Theme = "Dark"
 
