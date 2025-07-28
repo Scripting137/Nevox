@@ -10,11 +10,11 @@ local Hub_Script_ID = "455ffe3be03850d1c8ecf989cbcc49ce"
 local Discord_Invite = "https://discord.gg/xTPyCTuKBE"
 local UI_Theme = "Dark"
 
-local Linkvertise_Enabled = true
-local Linkvertise_Link = "https://direct-link.net/1375753/7uK98uNVB8W8"
+local Linkvertise_Enabled = false
+local Linkvertise_Link = ""
 
 local Lootlabs_Enabled = true   
-local Lootlabs_Link = "https://workink.net/21Mo/mw5o97vi"
+local Lootlabs_Link = "https://lootdest.org/s?ilOnra52"
 
 makefolder(Hub)
 local key_path = Hub .. "/Key.txt"
@@ -36,8 +36,8 @@ local function StartMainScript()
         ["109983668079237"] = true,
         ["96342491571673"] = true,
         ["128762245270197"] = true,
-        ["99567941238278"] = true,
-        ["125009265613167"] = true,
+        ["79546208627805"] = true,
+        ["126509999114328"] = true,
         ["126884695634066"] = true,
         -- Add more supported place IDs here if needed
     }
@@ -115,7 +115,7 @@ end
 
 if Lootlabs_Enabled then
     Tabs.Main:AddButton({
-        Title = "Get Key (Workink)",
+        Title = "Get Key (Lootlabs)",
         Callback = function()
             setclipboard(Lootlabs_Link)
             notify("Copied To Clipboard", "Ad Reward Link has been copied to your clipboard", 16)
