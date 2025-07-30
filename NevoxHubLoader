@@ -10,12 +10,11 @@ local Hub_Script_ID = "455ffe3be03850d1c8ecf989cbcc49ce"
 local Discord_Invite = "https://discord.gg/xTPyCTuKBE"
 local UI_Theme = "Dark"
 
-local Linkvertise_Enabled = false
-local Linkvertise_Link = ""
+local Linkvertise_Enabled = true
+local Linkvertise_Link = "https://ads.luarmor.net/get_key?for=Key-OkVYHBqeAOAt"
 
 local Lootlabs_Enabled = true   
-local Lootlabs_Link = "https://lootdest.org/s?ilOnra52"
-
+local Lootlabs_Link = "https://ads.luarmor.net/get_key?for=Key-cqeIPWKdyujA"
 makefolder(Hub)
 local key_path = Hub .. "/Key.txt"
 script_key = script_key or (isfile and isfile(key_path) and readfile(key_path)) or nil
@@ -115,7 +114,7 @@ end
 
 if Lootlabs_Enabled then
     Tabs.Main:AddButton({
-        Title = "Get Key (Lootlabs)",
+        Title = "Get Key (Workink)",
         Callback = function()
             setclipboard(Lootlabs_Link)
             notify("Copied To Clipboard", "Ad Reward Link has been copied to your clipboard", 16)
