@@ -14,12 +14,18 @@ local Linkvertise_Enabled = true
 local Linkvertise_Link = "https://ads.luarmor.net/get_key?for=Key-OkVYHBqeAOAt"
 
 local Lootlabs_Enabled = true   
-local Lootlabs_Link = "https://ads.luarmor.net/get_key?for=Key-cqeIPWKdyujA"
+local Lootlabs_Link = "https://ads.luarmor.net/get_key?for=Key-MuqFTZydxZgF"
+
+local Workink_Enabled = true   
+local Workink_Link = "https://ads.luarmor.net/get_key?for=Key-cqeIPWKdyujA"
+
 makefolder(Hub)
 local key_path = Hub .. "/Key.txt"
 script_key = script_key or (isfile and isfile(key_path) and readfile(key_path)) or nil
+
 local UI = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local API = loadstring(game:HttpGet("https://sdkAPI-public.luarmor.net/library.lua"))()
+
 local Cloneref = cloneref or function(instance)
     return instance
 end
@@ -114,13 +120,25 @@ end
 
 if Lootlabs_Enabled then
     Tabs.Main:AddButton({
-        Title = "Get Key (Workink)",
+        Title = "Get Key (LootLabs)",
         Callback = function()
             setclipboard(Lootlabs_Link)
             notify("Copied To Clipboard", "Ad Reward Link has been copied to your clipboard", 16)
         end,
     })
 end
+
+if Workink_Enabled then
+    Tabs.Main:AddButton({
+        Title = "Get Key (Workink)",
+        Callback = function()
+            setclipboard(Workink_Link)
+            notify("Copied To Clipboard", "Ad Reward Link has been copied to your clipboard", 16)
+        end,
+    })
+end
+
+
 
 Tabs.Main:AddButton({
     Title = "Check Key",
