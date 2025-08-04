@@ -41,10 +41,10 @@ local function StartMainScript()
         ["109983668079237"] = true,
         ["96342491571673"] = true,
         ["128762245270197"] = true,
-        ["79546208627805"] = true,
+        ["99567941238278"] = true,
         ["126509999114328"] = true,
         ["126884695634066"] = true,
-        -- Add more supported place IDs here if needed
+        
     }
 
     if validPlaceIds[placeId] then
