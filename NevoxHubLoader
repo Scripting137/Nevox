@@ -46,6 +46,7 @@ local function StartMainScript()
         ["126884695634066"] = true,
         ["662417684"] = true,
         ["142823291"] = true,
+        ["2534724415"] = true,
         
     }
 
