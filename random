@@ -66,7 +66,7 @@ local autoHealFruit = "Bloodfruit"
 local autoEatFruit = "Coconut"
 local autoHealThreshold = 90
 local autoEatThreshold = 90
-local autoEatCPS = 2
+local autoEatCPS = 1  -- Fixed to 1 instead of NaN
 
 -- Combat Variables
 local killAuraEnabled = false
@@ -114,7 +114,6 @@ local canDoubleJump = false
 local hasDoubleJumped = false
 local doubleJumpConnections = {}
 local doubleJumpEnabled = false
-local lastJumpTime = 0
 
 -- Fruit to Item ID mapping
 local fruitToItemId = {
@@ -386,7 +385,7 @@ local autoeatcps = AutoHealSection:Slider({
     Min = 1,
     Max = 120,
     Suffix = "cps",
-    Default = 2,
+    Default = 1,
     Decimals = 0,
     Callback = function(Value)
         autoEatCPS = Value
@@ -524,12 +523,15 @@ local pickuprangeslider = PickupSection:Slider({
     end
 })
 
--- Create the dropdown with All option
+-- Create the dropdown with All option - SIMPLIFIED VERSION
 local dropdownItems = {}
 for _, item in ipairs(allItems) do
     table.insert(dropdownItems, item)
 end
 table.insert(dropdownItems, "All")
+
+-- Store dropdown values in a table
+local dropdownValues = {}
 
 local itemdropdown = PickupSection:Dropdown({
     Name = "Items to Pickup",
@@ -538,20 +540,18 @@ local itemdropdown = PickupSection:Dropdown({
     Items = dropdownItems,
     Multi = true,
     Callback = function(Value)
+        dropdownValues = Value
         selectedItems = {}
-        local hasAll = false
         
-        -- Check if "All" is selected
+        -- If "All" is selected, add all items
         if Value["All"] then
-            hasAll = true
-            -- Select all individual items
             for _, item in ipairs(allItems) do
                 table.insert(selectedItems, item)
             end
         else
-            -- Only add selected individual items
-            for item, state in pairs(Value) do
-                if state and item ~= "All" then
+            -- Add only selected individual items
+            for item, isSelected in pairs(Value) do
+                if isSelected and item ~= "All" then
                     table.insert(selectedItems, item)
                 end
             end
@@ -805,7 +805,9 @@ SettingsSection:Toggle({
     Flag = "ShowKeybinds",
     Default = true,
     Callback = function(Value)
-        -- This will be handled by the library's built-in toggle
+        if Library.KeybindList then
+            Library.KeybindList.Visible = Value
+        end
     end
 })
 
@@ -818,6 +820,15 @@ local function tableFind(tab, item)
         end
     end
     return nil
+end
+
+local function stringSplit(str, sep)
+    local result = {}
+    local pattern = string.format("([^%s]+)", sep)
+    for match in str:gmatch(pattern) do
+        table.insert(result, match)
+    end
+    return result
 end
 
 local function getLayout(itemName)
@@ -850,9 +861,11 @@ local function drop(itemName)
         if child:IsA("ImageLabel") and child.Name == itemName then
             if packets and packets.DropBagItem and packets.DropBagItem.send then
                 packets.DropBagItem.send(child.LayoutOrder)
+                return true
             end
         end
     end
+    return false
 end
 
 local function plant(entityId, itemId)
@@ -956,7 +969,7 @@ function updateNoSlip(enabled)
     end
 end
 
--- Double Jump function
+-- FIXED Double Jump function
 function updateDoubleJump(enabled)
     for _, conn in pairs(doubleJumpConnections) do
         conn:Disconnect()
@@ -965,35 +978,31 @@ function updateDoubleJump(enabled)
     doubleJumpEnabled = enabled
     
     if enabled then
-        canDoubleJump = false
-        hasDoubleJumped = false
-        
-        local connection1 = runs.Heartbeat:Connect(function()
-            if hum and hum.Parent then
-                if hum.FloorMaterial == Enum.Material.Air then
-                    canDoubleJump = true
-                else
-                    hasDoubleJumped = false
-                    canDoubleJump = false
-                end
-            end
-        end)
-        
-        local connection2 = uis.InputBegan:Connect(function(input, gameProcessed)
+        local connection1 = uis.InputBegan:Connect(function(input, gameProcessed)
             if gameProcessed then return end
             
             if input.KeyCode == Enum.KeyCode.Space then
                 if hum.FloorMaterial ~= Enum.Material.Air then
-                    -- Normal jump
-                    hasDoubleJumped = false
+                    -- On ground, allow double jump
                     canDoubleJump = true
+                    hasDoubleJumped = false
                 elseif canDoubleJump and not hasDoubleJumped then
-                    -- Double jump
-                    local currentVelocity = root.Velocity
-                    root.Velocity = Vector3.new(currentVelocity.X, hum.JumpPower * 1.5, currentVelocity.Z)
+                    -- In air and haven't double jumped yet
                     hasDoubleJumped = true
                     canDoubleJump = false
+                    
+                    -- Apply double jump force
+                    local currentVelocity = root.Velocity
+                    root.Velocity = Vector3.new(currentVelocity.X, hum.JumpPower * 1.3, currentVelocity.Z)
                 end
+            end
+        end)
+        
+        local connection2 = runs.Heartbeat:Connect(function()
+            if hum.FloorMaterial ~= Enum.Material.Air then
+                -- Reset when on ground
+                hasDoubleJumped = false
+                canDoubleJump = true
             end
         end)
         
@@ -1061,7 +1070,8 @@ function createPlayerESP(targetPlr)
             local armorFound = {}
             for _, v in pairs(tChar:GetChildren()) do
                 if v.Name:lower():find("chest") or v.Name:lower():find("greaves") or v.Name:lower():find("helmet") or v.Name:lower():find("halo") or v.Name:lower():find("crown") then
-                    local type = v.Name:split(" ")[1] or v.Name
+                    local typeParts = stringSplit(v.Name, " ")
+                    local type = typeParts[1] or v.Name
                     if not tableFind(armorFound, type) then
                         table.insert(armorFound, type)
                     end
@@ -1148,7 +1158,7 @@ local function getBushes(range, fruitName)
     return bushes
 end
 
--- Tweening function
+-- FIXED Tween function - Slower like 18 walkspeed
 local tweening = nil
 local function tweenTo(targetCFrame)
     if tweening then 
@@ -1157,11 +1167,11 @@ local function tweenTo(targetCFrame)
     end
     
     local distance = (root.Position - targetCFrame.Position).Magnitude
-    local duration = math.max(0.1, distance / 50)
+    local duration = math.max(0.5, distance / 18)  -- Slower like 18 walkspeed
     
     local tweenInfo = TweenInfo.new(
         duration,
-        Enum.EasingStyle.Quad,
+        Enum.EasingStyle.Linear,
         Enum.EasingDirection.Out
     )
     
@@ -1170,7 +1180,7 @@ local function tweenTo(targetCFrame)
 end
 
 -- =================== MAIN LOOPS ===================
--- Auto Heal and Auto Eat
+-- Auto Heal and Auto Eat - FIXED NaN issue
 task.spawn(function()
     while true do
         local eatDelay = 1 / math.max(1, autoEatCPS)
@@ -1318,7 +1328,7 @@ task.spawn(function()
     end
 end)
 
--- Auto Pickup
+-- FIXED Auto Pickup - Now works with dropdown
 task.spawn(function()
     while true do
         if autoPickupEnabled then
@@ -1330,10 +1340,12 @@ task.spawn(function()
                     local shouldPickup = false
                     
                     if customPickupEnabled and customPickupText ~= "" then
+                        -- Custom pickup mode
                         if string.find(string.lower(itemName), string.lower(customPickupText)) then
                             shouldPickup = true
                         end
                     else
+                        -- Normal dropdown mode
                         if tableFind(selectedItems, itemName) then
                             shouldPickup = true
                         end
@@ -1383,13 +1395,15 @@ task.spawn(function()
     end
 end)
 
--- Auto Drop
+-- FIXED Auto Drop - Much faster
 task.spawn(function()
     while true do
         if autoDropEnabled then
             if dropItem == "All" then
+                -- Drop all items in the dropdown list VERY FAST
                 for _, itemName in ipairs(allDropItems) do
                     drop(itemName)
+                    task.wait(0.001) -- Very small delay for speed
                 end
             else
                 drop(dropItem)
@@ -1398,7 +1412,7 @@ task.spawn(function()
         if autoDropCustomEnabled then
             drop(customDropItem)
         end
-        task.wait(0.3)
+        task.wait(0.01) -- Much faster loop
     end
 end)
 
