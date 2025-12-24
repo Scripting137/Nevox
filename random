@@ -724,8 +724,10 @@ local tweenrangeslider = TweenSection:Slider({
 })
 
 -- =================== ESP TAB ===================
--- Removed sections, all toggles together
-local esptoggle = ESPPage:Toggle({
+-- Create a section for ESP toggles (but keep them visually together)
+local ESPSection = ESPPage:Section({Name = "ESP Settings", Description = "Player ESP Configuration", Side = 1})
+
+local esptoggle = ESPSection:Toggle({
     Name = "Enable ESP",
     Flag = "ESPToggle",
     Default = false,
@@ -739,7 +741,7 @@ local esptoggle = ESPPage:Toggle({
     end
 })
 
-local esphealth = ESPPage:Toggle({
+local esphealth = ESPSection:Toggle({
     Name = "Show HP",
     Flag = "ESPHealth",
     Default = true,
@@ -748,7 +750,7 @@ local esphealth = ESPPage:Toggle({
     end
 })
 
-local esparmor = ESPPage:Toggle({
+local esparmor = ESPSection:Toggle({
     Name = "Show Armor",
     Flag = "ESPArmor",
     Default = true,
@@ -757,7 +759,7 @@ local esparmor = ESPPage:Toggle({
     end
 })
 
-local espweapon = ESPPage:Toggle({
+local espweapon = ESPSection:Toggle({
     Name = "Show Weapon",
     Flag = "ESPWeapon",
     Default = true,
@@ -766,7 +768,7 @@ local espweapon = ESPPage:Toggle({
     end
 })
 
-local esprange = ESPPage:Slider({
+local esprange = ESPSection:Slider({
     Name = "Max Distance",
     Flag = "ESPRange",
     Min = 0,
