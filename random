@@ -8,27 +8,32 @@ local Window = Library:Window({
 
 local KeybindList = Library:KeybindList("Keybinds")
 
-Window:Category("Enviroment & Transport")
-local CarPage = Window:Page({Name = "Car", Icon = "138827881557940"})
-local ESPPage = Window:Page({Name = "ESP", Icon = "100050851789190", Columns = 1})
-local LanguagePage = Window:Page({Name = "Lang", Icon = "126497581491926"})
-Window:Category("Players & Vision")
-local PlayersPage = Window:Page({Name = "Players", Icon = "134236649319095"})
-local RadarPage = Window:Page({Name = "Radar", Icon = "123554105934637"})
-local WorldPage = Window:Page({Name = "World", Icon = "123944728972740"})
-Window:Category("Utilities & Settings")
-local MiscPage = Window:Page({Name = "Misc", Icon = "103180437044643"})
-local ExploitsPage = Window:Page({Name = "Exploits", Icon = "108839695397679"})
+-- Categories & Pages
+Window:Category("Main Features")
+local MainPage = Window:Page({Name = "Main", Icon = "134236649319095"})
+local CombatPage = Window:Page({Name = "Combat", Icon = "100050851789190"})
+
+Window:Category("Visual")
+local ESPPage = Window:Page({Name = "ESP", Icon = "138827881557940", Columns = 1})
+
+Window:Category("Settings")
 local SettingsPage = Library:CreateSettingsPage(Window, KeybindList)
 
--- ESP System Variables
-local espEnabled = false
-local espShowHP = true
-local espShowArmor = true
-local espShowWeapon = true
-local espMaxDistance = 2500
+-- Services & Packets
+local rs = game:GetService("ReplicatedStorage")
+local packets
+local success, err = pcall(function()
+    packets = require(rs.Modules.Packets)
+end)
+if not success then
+    Library:Notification({
+        Title = "Warning",
+        Description = "Failed to load packets module",
+        Duration = 5,
+        Icon = "73789337996373"
+    })
+end
 
--- Player Stats Variables
 local plr = game.Players.LocalPlayer
 local char = plr.Character or plr.CharacterAdded:Wait()
 local root = char:WaitForChild("HumanoidRootPart")
@@ -36,7 +41,7 @@ local hum = char:WaitForChild("Humanoid")
 local runs = game:GetService("RunService")
 local uis = game:GetService("UserInputService")
 
--- Original values for resetting
+-- Original values
 local originalValues = {
     WalkSpeed = hum.WalkSpeed,
     JumpPower = hum.JumpPower,
@@ -44,222 +49,237 @@ local originalValues = {
     MaxSlopeAngle = hum.MaxSlopeAngle
 }
 
--- Double Jump System
+-- ESP Variables
+local espEnabled = false
+local espShowHP = true
+local espShowArmor = true
+local espShowWeapon = true
+local espMaxDistance = 2500
+local espShowCritters = true
+local espShowResources = true
+
+-- Auto Heal / Eat Variables
+local autoHealEnabled = false
+local autoEatEnabled = false
+local autoHealFruit = "Bloodfruit"
+local autoEatFruit = "Coconut"
+local autoHealThreshold = 90
+local autoEatThreshold = 90
+local autoEatCPS = 3
+local lastUseTime = 0
+
+-- Kill Aura Variables
+local killAuraEnabled = false
+local killAuraRange = 8
+local killAuraMaxTargets = 3
+local killAuraCooldown = 0.08
+
+-- Double Jump Variables
 local canDoubleJump = false
 local hasDoubleJumped = false
 local doubleJumpConnections = {}
 local doubleJumpEnabled = false
 
--- Player stats connections
-local walkSpeedConnection = nil
-local jumpPowerConnection = nil
-local hipHeightConnection = nil
-local slopeAngleConnection = nil
+-- =================== MAIN TAB (Player Stats + Utilities) ===================
+local PlayerSection = MainPage:Section({Name = "Player Stats", Description = "Modify your player stats", Side = 1})
 
--- =================== ESP TAB ===================
-local ESPMainSection = ESPPage:Section({Name = "ESP Settings", Description = "Player ESP Configuration", Side = 1})
-
-local esptoggle = ESPMainSection:Toggle({
-    Name = "Enable ESP",
-    Flag = "ESPToggle",
-    Default = false,
-    Callback = function(Value)
-        espEnabled = Value
-        if not Value then
-            clearESP()
-        else
-            createESPForAllPlayers()
-        end
-    end
-})
-
-local esphealth = ESPMainSection:Toggle({
-    Name = "Show HP",
-    Flag = "ESPHealth",
-    Default = true,
-    Callback = function(Value)
-        espShowHP = Value
-    end
-})
-
-local esparmor = ESPMainSection:Toggle({
-    Name = "Show Armor",
-    Flag = "ESPArmor",
-    Default = true,
-    Callback = function(Value)
-        espShowArmor = Value
-    end
-})
-
-local espweapon = ESPMainSection:Toggle({
-    Name = "Show Weapon",
-    Flag = "ESPWeapon",
-    Default = true,
-    Callback = function(Value)
-        espShowWeapon = Value
-    end
-})
-
-local esprange = ESPMainSection:Slider({
-    Name = "Max Distance",
-    Flag = "ESPRange",
-    Min = 0,
-    Max = 5000,
-    Suffix = "m",
-    Default = 2500,
-    Decimals = 1,
-    Callback = function(Value)
-        espMaxDistance = Value
-    end
-})
-
--- =================== PLAYERS TAB ===================
-local PlayerSection = PlayersPage:Section({Name = "Player Stats", Description = "Modify your player stats", Side = 1})
-
--- Walkspeed Toggle
 local wstoggle = PlayerSection:Toggle({
     Name = "Walkspeed",
     Flag = "WalkSpeedToggle",
     Default = false,
-    Callback = function(Value)
-        updateWalkspeed(Value)
-    end
+    Callback = function(v) updateWalkspeed(v) end
 })
 
--- Walkspeed Slider
 local wsslider = PlayerSection:Slider({
     Name = "Walkspeed Value",
     Flag = "WalkSpeedValue",
-    Min = 1,
-    Max = 24,
-    Suffix = "studs",
-    Default = 16,
-    Decimals = 1,
-    Callback = function(Value)
-        if wstoggle:Get() then
-            hum.WalkSpeed = Value
-        end
-    end
+    Min = 10, Max = 30, Suffix = "studs", Default = 16, Decimals = 1,
+    Callback = function(v) if wstoggle:Get() then hum.WalkSpeed = v end end
 })
 
--- JumpPower Toggle
 local jptoggle = PlayerSection:Toggle({
     Name = "JumpPower",
     Flag = "JumpPowerToggle",
     Default = false,
-    Callback = function(Value)
-        updateJumpPower(Value)
-    end
+    Callback = function(v) updateJumpPower(v) end
 })
 
--- JumpPower Slider
 local jpslider = PlayerSection:Slider({
     Name = "JumpPower Value",
     Flag = "JumpPowerValue",
-    Min = 30,
-    Max = 80,
-    Suffix = "power",
-    Default = 50,
-    Decimals = 1,
-    Callback = function(Value)
-        if jptoggle:Get() then
-            hum.JumpPower = Value
-        end
-    end
+    Min = 30, Max = 100, Suffix = "power", Default = 50, Decimals = 1,
+    Callback = function(v) if jptoggle:Get() then hum.JumpPower = v end end
 })
 
--- HipHeight Toggle
 local hheighttoggle = PlayerSection:Toggle({
     Name = "HipHeight",
     Flag = "HipHeightToggle",
     Default = false,
-    Callback = function(Value)
-        updateHipHeight(Value)
-    end
+    Callback = function(v) updateHipHeight(v) end
 })
 
--- HipHeight Slider
 local hheightslider = PlayerSection:Slider({
     Name = "HipHeight Value",
     Flag = "HipHeightValue",
-    Min = 0.1,
-    Max = 10,
-    Suffix = "studs",
-    Default = 2,
-    Decimals = 1,
-    Callback = function(Value)
-        if hheighttoggle:Get() then
-            hum.HipHeight = Value
-        end
-    end
+    Min = 0.1, Max = 10, Suffix = "studs", Default = 2, Decimals = 1,
+    Callback = function(v) if hheighttoggle:Get() then hum.HipHeight = v end end
 })
 
--- No Mountain Slip Toggle
 local msatoggle = PlayerSection:Toggle({
     Name = "No Mountain Slip",
     Flag = "NoSlipToggle",
     Default = false,
-    Callback = function(Value)
-        updateNoSlip(Value)
-    end
+    Callback = function(v) updateNoSlip(v) end
 })
 
--- Double Jump Toggle
 local doublejumptoggle = PlayerSection:Toggle({
     Name = "Double Jump",
     Flag = "DoubleJumpToggle",
     Default = false,
-    Callback = function(Value)
-        updateDoubleJump(Value)
-    end
+    Callback = function(v) updateDoubleJump(v) end
 })
 
--- =================== UTILITIES SECTION ===================
-local UtilitySection = PlayersPage:Section({Name = "Utilities", Description = "Utility features", Side = 2})
+local UtilitySection = MainPage:Section({Name = "Utilities", Side = 2})
 
--- Infinite Yield Button
-UtilitySection:Button({
-    Name = "Infinite Yield",
-    Callback = function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/decryp1/herklesiy/refs/heads/main/hiy"))()
-        Library:Notification({
-            Title = "Loaded",
-            Description = "Infinite Yield loaded!",
-            Duration = 3,
-            Icon = "73789337996373"
-        })
-    end
-})
-
--- Reset Character Button
 UtilitySection:Button({
     Name = "Reset Character",
     Callback = function()
         if char then
             char:BreakJoints()
-            Library:Notification({
-                Title = "Reset",
-                Description = "Character reset!",
-                Duration = 3,
-                Icon = "73789337996373"
-            })
         end
     end
 })
 
--- =================== PLAYER STATS FUNCTIONS ===================
-function updateWalkspeed(enabled)
-    if walkSpeedConnection then
-        walkSpeedConnection:Disconnect()
-        walkSpeedConnection = nil
+-- =================== COMBAT TAB ===================
+local CombatSection = CombatPage:Section({Name = "Kill Aura", Side = 1})
+
+local kauratoggle = CombatSection:Toggle({
+    Name = "Kill Aura",
+    Flag = "KillAuraToggle",
+    Default = false,
+    Callback = function(v) killAuraEnabled = v end
+})
+
+local kaurarange = CombatSection:Slider({
+    Name = "Range",
+    Flag = "KillAuraRange",
+    Min = 1, Max = 12, Suffix = "studs", Default = 8, Decimals = 1,
+    Callback = function(v) killAuraRange = v end
+})
+
+local kaumax = CombatSection:Dropdown({
+    Name = "Max Targets",
+    Flag = "KillAuraMax",
+    Default = "3",
+    Items = {"1","2","3","4","5","6"},
+    Callback = function(v) killAuraMaxTargets = tonumber(v) end
+})
+
+local kaCooldown = CombatSection:Slider({
+    Name = "Attack Cooldown",
+    Flag = "KillAuraCD",
+    Min = 0.05, Max = 0.5, Suffix = "s", Default = 0.08, Decimals = 2,
+    Callback = function(v) killAuraCooldown = v end
+})
+
+local AutoHealSection = CombatPage:Section({Name = "Auto Heal & Eat", Side = 2})
+
+local healToggle = AutoHealSection:Toggle({
+    Name = "Auto Heal",
+    Flag = "AutoHeal",
+    Default = false,
+    Callback = function(v) autoHealEnabled = v end
+})
+
+local healFruit = AutoHealSection:Dropdown({
+    Name = "Heal Fruit",
+    Flag = "HealFruit",
+    Default = "Bloodfruit",
+    Items = {"Bloodfruit","Bluefruit","Lemon","Coconut","Jelly","Banana","Orange","Berry"},
+    Callback = function(v) autoHealFruit = v end
+})
+
+local healThresh = AutoHealSection:Slider({
+    Name = "Heal Below %",
+    Flag = "HealThresh",
+    Min = 1, Max = 100, Suffix = "%", Default = 90,
+    Callback = function(v) autoHealThreshold = v end
+})
+
+local eatToggle = AutoHealSection:Toggle({
+    Name = "Auto Eat",
+    Flag = "AutoEat",
+    Default = false,
+    Callback = function(v) autoEatEnabled = v end
+})
+
+local eatFruit = AutoHealSection:Dropdown({
+    Name = "Eat Fruit",
+    Flag = "EatFruit",
+    Default = "Coconut",
+    Items = {"Coconut","Bloodfruit","Bluefruit","Lemon","Jelly","Banana","Orange","Berry"},
+    Callback = function(v) autoEatFruit = v end
+})
+
+local eatThresh = AutoHealSection:Slider({
+    Name = "Eat Below %",
+    Flag = "EatThresh",
+    Min = 1, Max = 100, Suffix = "%", Default = 90,
+    Callback = function(v) autoEatThreshold = v end
+})
+
+local eatCPS = AutoHealSection:Slider({
+    Name = "Eat Speed (CPS)",
+    Flag = "EatCPS",
+    Min = 1, Max = 8, Suffix = "cps", Default = 3,
+    Callback = function(v) autoEatCPS = v end
+})
+
+-- =================== ESP TAB ===================
+local ESPSection = ESPPage:Section({Name = "Player ESP", Side = 1})
+
+local esptoggle = ESPSection:Toggle({
+    Name = "Enable Player ESP",
+    Flag = "PlayerESP",
+    Default = false,
+    Callback = function(v)
+        espEnabled = v
+        if not v then clearESP() else createESPForAllPlayers() end
     end
-    
+})
+
+local esphealth = ESPSection:Toggle({Name = "Show HP", Default = true, Callback = function(v) espShowHP = v end})
+local esparmor = ESPSection:Toggle({Name = "Show Armor", Default = true, Callback = function(v) espShowArmor = v end})
+local espweapon = ESPSection:Toggle({Name = "Show Weapon", Default = true, Callback = function(v) espShowWeapon = v end})
+
+ESPSection:Toggle({
+    Name = "Critter ESP",
+    Default = true,
+    Callback = function(v) espShowCritters = v end
+})
+
+ESPSection:Toggle({
+    Name = "Resource ESP",
+    Default = true,
+    Callback = function(v) espShowResources = v end
+})
+
+local esprange = ESPSection:Slider({
+    Name = "Max Distance",
+    Flag = "ESPRange",
+    Min = 0, Max = 5000, Suffix = "m", Default = 2500, Decimals = 1,
+    Callback = function(v) espMaxDistance = v end
+})
+
+-- =================== FUNCTIONS ===================
+local walkConn, jumpConn, hipConn, slopeConn
+
+function updateWalkspeed(enabled)
+    if walkConn then walkConn:Disconnect() walkConn = nil end
     if enabled then
         hum.WalkSpeed = wsslider:Get()
-        walkSpeedConnection = runs.RenderStepped:Connect(function()
-            if hum and hum.Parent then
-                hum.WalkSpeed = wsslider:Get()
-            end
+        walkConn = runs.RenderStepped:Connect(function()
+            if hum and hum.Parent then hum.WalkSpeed = wsslider:Get() end
         end)
     else
         hum.WalkSpeed = originalValues.WalkSpeed
@@ -267,17 +287,11 @@ function updateWalkspeed(enabled)
 end
 
 function updateJumpPower(enabled)
-    if jumpPowerConnection then
-        jumpPowerConnection:Disconnect()
-        jumpPowerConnection = nil
-    end
-    
+    if jumpConn then jumpConn:Disconnect() jumpConn = nil end
     if enabled then
         hum.JumpPower = jpslider:Get()
-        jumpPowerConnection = runs.RenderStepped:Connect(function()
-            if hum and hum.Parent then
-                hum.JumpPower = jpslider:Get()
-            end
+        jumpConn = runs.RenderStepped:Connect(function()
+            if hum and hum.Parent then hum.JumpPower = jpslider:Get() end
         end)
     else
         hum.JumpPower = originalValues.JumpPower
@@ -285,17 +299,11 @@ function updateJumpPower(enabled)
 end
 
 function updateHipHeight(enabled)
-    if hipHeightConnection then
-        hipHeightConnection:Disconnect()
-        hipHeightConnection = nil
-    end
-    
+    if hipConn then hipConn:Disconnect() hipConn = nil end
     if enabled then
         hum.HipHeight = hheightslider:Get()
-        hipHeightConnection = runs.RenderStepped:Connect(function()
-            if hum and hum.Parent then
-                hum.HipHeight = hheightslider:Get()
-            end
+        hipConn = runs.RenderStepped:Connect(function()
+            if hum and hum.Parent then hum.HipHeight = hheightslider:Get() end
         end)
     else
         hum.HipHeight = originalValues.HipHeight
@@ -303,17 +311,11 @@ function updateHipHeight(enabled)
 end
 
 function updateNoSlip(enabled)
-    if slopeAngleConnection then
-        slopeAngleConnection:Disconnect()
-        slopeAngleConnection = nil
-    end
-    
+    if slopeConn then slopeConn:Disconnect() slopeConn = nil end
     if enabled then
         hum.MaxSlopeAngle = 89.9
-        slopeAngleConnection = runs.RenderStepped:Connect(function()
-            if hum and hum.Parent then
-                hum.MaxSlopeAngle = 89.9
-            end
+        slopeConn = runs.RenderStepped:Connect(function()
+            if hum and hum.Parent then hum.MaxSlopeAngle = 89.9 end
         end)
     else
         hum.MaxSlopeAngle = originalValues.MaxSlopeAngle
@@ -321,327 +323,278 @@ function updateNoSlip(enabled)
 end
 
 function updateDoubleJump(enabled)
-    -- Clean up old connections
-    for _, conn in pairs(doubleJumpConnections) do
-        conn:Disconnect()
-    end
+    for _, c in pairs(doubleJumpConnections) do c:Disconnect() end
     doubleJumpConnections = {}
     doubleJumpEnabled = enabled
-    
+
     if enabled then
-        -- Reset jump state
         canDoubleJump = false
         hasDoubleJumped = false
-        
-        -- Ground detection for resetting double jump
-        local groundCheck = runs.RenderStepped:Connect(function()
+
+        local ground = runs.RenderStepped:Connect(function()
             if hum and hum.Parent then
-                if hum.FloorMaterial == Enum.Material.Air and not hasDoubleJumped then
-                    canDoubleJump = true
-                elseif hum.FloorMaterial ~= Enum.Material.Air then
+                if hum.FloorMaterial ~= Enum.Material.Air then
                     hasDoubleJumped = false
                     canDoubleJump = true
                 end
             end
         end)
-        
-        -- Jump input detection
-        local jumpInput = uis.InputBegan:Connect(function(input, gameProcessed)
-            if gameProcessed or not hum or not hum.Parent then return end
-            
-            if input.KeyCode == Enum.KeyCode.Space and hum.FloorMaterial == Enum.Material.Air and canDoubleJump then
-                -- Apply double jump velocity
-                local currentVelocity = root.Velocity
-                root.Velocity = Vector3.new(currentVelocity.X, hum.JumpPower * 1.5, currentVelocity.Z)
+
+        local input = uis.InputBegan:Connect(function(inp, gp)
+            if gp or not hum or not hum.Parent then return end
+            if inp.KeyCode == Enum.KeyCode.Space and hum.FloorMaterial == Enum.Material.Air and canDoubleJump then
+                root.Velocity = Vector3.new(root.Velocity.X, jpslider:Get() * 1.6, root.Velocity.Z)
                 hasDoubleJumped = true
                 canDoubleJump = false
             end
         end)
-        
-        table.insert(doubleJumpConnections, groundCheck)
-        table.insert(doubleJumpConnections, jumpInput)
+
+        table.insert(doubleJumpConnections, ground)
+        table.insert(doubleJumpConnections, input)
     end
 end
 
--- Character reset handler
+-- ESP Functions
+function createESP(obj, name, color)
+    local bgui = Instance.new("BillboardGui", game.CoreGui)
+    bgui.Name = name .. "_ESP"
+    bgui.AlwaysOnTop = true
+    bgui.Size = UDim2.new(0, 200, 0, 50)
+    bgui.ExtentsOffset = Vector3.new(0, 3, 0)
+
+    local label = Instance.new("TextLabel", bgui)
+    label.Size = UDim2.new(1,0,1,0)
+    label.BackgroundTransparency = 1
+    label.Text = name
+    label.TextColor3 = color or Color3.new(1,1,1)
+    label.TextStrokeTransparency = 0
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 16
+
+    runs.RenderStepped:Connect(function()
+        if not espEnabled or not obj or not obj:FindFirstChild("HumanoidRootPart" or "PrimaryPart") then
+            bgui.Enabled = false
+            return
+        end
+        local part = obj:FindFirstChild("HumanoidRootPart") or obj.PrimaryPart
+        local dist = (part.Position - root.Position).Magnitude
+        if dist > espMaxDistance then
+            bgui.Enabled = false
+            return
+        end
+        bgui.Adornee = part
+        bgui.Enabled = true
+        label.Text = name .. " [" .. math.floor(dist) .. "m]"
+    end)
+end
+
+function createPlayerESP(p)
+    if p == plr then return end
+    local bgui = Instance.new("BillboardGui", game.CoreGui)
+    bgui.Name = p.Name .. "_PlayerESP"
+    bgui.AlwaysOnTop = true
+    bgui.Size = UDim2.new(0, 250, 0, 100)
+    bgui.ExtentsOffset = Vector3.new(0, 3.5, 0)
+
+    local container = Instance.new("Frame", bgui)
+    container.Size = UDim2.new(1,0,1,0)
+    container.BackgroundTransparency = 1
+
+    local nameLabel = Instance.new("TextLabel", container)
+    nameLabel.Size = UDim2.new(1,0,0,22)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.TextSize = 18
+    nameLabel.TextStrokeTransparency = 0
+
+    local infoLabel = Instance.new("TextLabel", container)
+    infoLabel.Position = UDim2.new(0,0,0,22)
+    infoLabel.Size = UDim2.new(1,0,0,18)
+    infoLabel.BackgroundTransparency = 1
+    infoLabel.Font = Enum.Font.GothamBold
+    infoLabel.TextSize = 14
+    infoLabel.TextStrokeTransparency = 0
+
+    runs.RenderStepped:Connect(function()
+        local tChar = workspace.Players:FindFirstChild(p.Name)
+        if not espEnabled or not tChar or not tChar:FindFirstChild("HumanoidRootPart") then
+            bgui.Enabled = false return
+        end
+        local dist = (tChar.HumanoidRootPart.Position - root.Position).Magnitude
+        if dist > espMaxDistance then bgui.Enabled = false return end
+
+        bgui.Adornee = tChar.HumanoidRootPart
+        bgui.Enabled = true
+
+        local color = p.TeamColor and p.TeamColor.Color or Color3.fromRGB(255,100,100)
+        nameLabel.TextColor3 = color
+        infoLabel.TextColor3 = color
+        nameLabel.Text = p.Name .. " [" .. math.floor(dist) .. "m]"
+
+        local details = {}
+        if espShowHP and tChar:FindFirstChild("Humanoid") then
+            table.insert(details, "HP: " .. math.floor(tChar.Humanoid.Health))
+        end
+        if espShowArmor then
+            local armor = {}
+            for _, v in pairs(tChar:GetChildren()) do
+                if v.Name:lower():find("chest") or v.Name:lower():find("greaves") or v.Name:lower():find("helmet") then
+                    table.insert(armor, v.Name:match("^%u%l+"))
+                end
+            end
+            table.insert(details, "A: " .. (#armor > 0 and table.concat(armor,"/") or "None"))
+        end
+        if espShowWeapon then
+            local tool = tChar:FindFirstChild("Tools")
+            local weapon = tool and (tool:FindFirstChildWhichIsA("Model") or tool:FindFirstChildWhichIsA("BasePart"))
+            table.insert(details, "W: " .. (weapon and weapon.Name or "None"))
+        end
+        infoLabel.Text = table.concat(details, " • ")
+    end)
+end
+
+function createESPForAllPlayers()
+    for _, p in pairs(game.Players:GetPlayers()) do
+        if p ~= plr then createPlayerESP(p) end
+    end
+end
+
+function clearESP()
+    for _, obj in pairs(game.CoreGui:GetChildren()) do
+        if obj:IsA("BillboardGui") and obj.Name:find("_ESP") then
+            obj:Destroy()
+        end
+    end
+end
+
+-- Critter & Resource ESP
+task.spawn(function()
+    while task.wait(3) do
+        if not espEnabled then continue end
+        if espShowCritters then
+            for _, critter in pairs(workspace.Critters:GetChildren()) do
+                if critter:IsA("Model") and not game.CoreGui:FindFirstChild(critter.Name .. "_ESP") then
+                    createESP(critter, critter.Name, Color3.fromRGB(0,255,0))
+                end
+            end
+        end
+        if espShowResources then
+            for _, res in pairs(workspace.Resources:GetChildren()) do
+                if res:IsA("Model") and not game.CoreGui:FindFirstChild(res.Name .. "_ESP") then
+                    createESP(res, res.Name, Color3.fromRGB(255,255,0))
+                end
+            end
+        end
+    end
+end)
+
+-- Kill Aura Loop
+task.spawn(function()
+    while task.wait(killAuraCooldown) do
+        if not killAuraEnabled then continue end
+        local targets = {}
+        for _, p in pairs(game.Players:GetPlayers()) do
+            if p ~= plr then
+                local folder = workspace.Players:FindFirstChild(p.Name)
+                if folder and folder:GetAttribute("EntityID") then
+                    local hrp = folder:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        local dist = (hrp.Position - root.Position).Magnitude
+                        if dist <= killAuraRange then
+                            table.insert(targets, {id = folder:GetAttribute("EntityID"), dist = dist})
+                        end
+                    end
+                end
+            end
+        end
+        if #targets > 0 then
+            table.sort(targets, function(a,b) return a.dist < b.dist end)
+            local toHit = {}
+            for i = 1, math.min(killAuraMaxTargets, #targets) do
+                table.insert(toHit, targets[i].id)
+            end
+            if packets and packets.SwingTool and packets.SwingTool.send then
+                packets.SwingTool.send(toHit)
+            end
+        end
+    end
+end)
+
+-- Auto Heal & Eat Loop
+task.spawn(function()
+    while task.wait(0.1) do
+        local delay = 1 / autoEatCPS
+        if tick() - lastUseTime < delay then continue end
+
+        local inv = plr.PlayerGui.MainGui.RightPanel.Inventory:FindFirstChild("List")
+        if not inv then continue end
+
+        if autoHealEnabled then
+            local hp = pcall(function()
+                return tonumber(plr.PlayerGui.MainGui.Panels.Stats.Bars.Health.ValueLabel.Text:match("%d+")) or 100
+            end) and _ or 100
+            if hp < autoHealThreshold then
+                local item = inv:FindFirstChild(autoHealFruit)
+                if item and packets and packets.UseBagItem then
+                    packets.UseBagItem.send(item.LayoutOrder)
+                    lastUseTime = tick()
+                end
+            end
+        end
+
+        if autoEatEnabled then
+            local hunger = pcall(function()
+                return tonumber(plr.PlayerGui.MainGui.Panels.Stats.Bars.Hunger.ValueLabel.Text:match("%d+")) or 100
+            end) and _ or 100
+            if hunger < autoEatThreshold then
+                local item = inv:FindFirstChild(autoEatFruit)
+                if item and packets and packets.UseBagItem then
+                    packets.UseBagItem.send(item.LayoutOrder)
+                    lastUseTime = tick()
+                end
+            end
+        end
+    end
+end)
+
+-- Character Reset Handler
 plr.CharacterAdded:Connect(function(newChar)
     char = newChar
     root = char:WaitForChild("HumanoidRootPart")
     hum = char:WaitForChild("Humanoid")
-    
-    -- Save new original values
+
     originalValues = {
         WalkSpeed = hum.WalkSpeed,
         JumpPower = hum.JumpPower,
         HipHeight = hum.HipHeight,
         MaxSlopeAngle = hum.MaxSlopeAngle
     }
-    
-    -- Reset double jump state
+
     canDoubleJump = false
     hasDoubleJumped = false
-    
-    -- Re-apply enabled features
-    if wstoggle:Get() then
-        updateWalkspeed(true)
-    end
-    
-    if jptoggle:Get() then
-        updateJumpPower(true)
-    end
-    
-    if hheighttoggle:Get() then
-        updateHipHeight(true)
-    end
-    
-    if msatoggle:Get() then
-        updateNoSlip(true)
-    end
-    
-    if doublejumptoggle:Get() then
-        updateDoubleJump(true)
-    end
+
+    if wstoggle:Get() then updateWalkspeed(true) end
+    if jptoggle:Get() then updateJumpPower(true) end
+    if hheighttoggle:Get() then updateHipHeight(true) end
+    if msatoggle:Get() then updateNoSlip(true) end
+    if doublejumptoggle:Get() then updateDoubleJump(true) end
 end)
 
--- =================== ESP FUNCTIONS ===================
-function createPlayerESP(targetPlr)
-    local bgui = Instance.new("BillboardGui", game.CoreGui)
-    bgui.Name = targetPlr.Name .. "_NevoxESP"
-    bgui.Size = UDim2.new(0, 250, 0, 100)
-    bgui.AlwaysOnTop = true
-    bgui.ExtentsOffset = Vector3.new(0, 3.5, 0)
-    
-    local container = Instance.new("Frame", bgui)
-    container.Size = UDim2.new(1, 0, 1, 0)
-    container.BackgroundTransparency = 1
+-- ESP Player Join/Leave
+game.Players.PlayerAdded:Connect(function(p)
+    if p ~= plr then createPlayerESP(p) end
+end)
 
-    local function createLabel(size, pos, fontSize)
-        local lbl = Instance.new("TextLabel", container)
-        lbl.Size = size
-        lbl.Position = pos
-        lbl.BackgroundTransparency = 1
-        lbl.Font = Enum.Font.GothamBold
-        lbl.TextSize = fontSize
-        lbl.TextStrokeTransparency = 0
-        lbl.TextStrokeColor3 = Color3.new(0, 0, 0)
-        return lbl
-    end
+game.Players.PlayerRemoving:Connect(function(p)
+    local esp = game.CoreGui:FindFirstChild(p.Name .. "_PlayerESP")
+    if esp then esp:Destroy() end
+end)
 
-    local nameLabel = createLabel(UDim2.new(1, 0, 0, 22), UDim2.new(0, 0, 0, 0), 18)
-    local infoLabel = createLabel(UDim2.new(1, 0, 0, 18), UDim2.new(0, 0, 0, 22), 14)
-
-    runs.RenderStepped:Connect(function()
-        local tChar = workspace.Players:FindFirstChild(targetPlr.Name)
-        if not espEnabled or not tChar or not tChar:FindFirstChild("HumanoidRootPart") then
-            nameLabel.Visible = false
-            infoLabel.Visible = false
-            return
-        end
-        local distance = (tChar.HumanoidRootPart.Position - root.Position).Magnitude
-        if distance > espMaxDistance then
-            nameLabel.Visible = false
-            infoLabel.Visible = false
-            return
-        end
-
-        bgui.Adornee = tChar.HumanoidRootPart
-        nameLabel.Visible = true
-        infoLabel.Visible = true
-        
-        local tribeColor = targetPlr.TeamColor and targetPlr.TeamColor.Color or Color3.fromRGB(139, 69, 19)
-        nameLabel.TextColor3 = tribeColor
-        infoLabel.TextColor3 = tribeColor
-        nameLabel.Text = targetPlr.Name .. " [" .. math.floor(distance) .. "m]"
-
-        local details = {}
-        if espShowHP and tChar:FindFirstChild("Humanoid") then
-            table.insert(details, "HP: " .. math.floor(tChar.Humanoid.Health))
-        end
-        
-        if espShowArmor then
-            local armorFound = {}
-            for _, v in pairs(tChar:GetChildren()) do
-                if v.Name:lower():find("chest") or v.Name:lower():find("greaves") or v.Name:lower():find("helmet") or v.Name:lower():find("halo") or v.Name:lower():find("crown") then
-                    local type = v.Name:split(" ")[1] or v.Name
-                    if not table.find(armorFound, type) then
-                        table.insert(armorFound, type)
-                    end
-                end
-            end
-            if #armorFound > 0 then
-                table.insert(details, "A: " .. table.concat(armorFound, "/"))
-            else
-                table.insert(details, "A: None")
-            end
-        end
-        
-        if espShowWeapon then
-            local tools = tChar:FindFirstChild("Tools")
-            local hName = tools and (tools:FindFirstChildWhichIsA("Model") or tools:FindFirstChildWhichIsA("BasePart"))
-            if hName then
-                table.insert(details, "W: " .. hName.Name)
-            else
-                table.insert(details, "W: None")
-            end
-        end
-        
-        if #details > 0 then
-            infoLabel.Text = table.concat(details, " • ")
-        else
-            infoLabel.Text = ""
-        end
-    end)
-end
-
-function createESPForAllPlayers()
-    for _, p in pairs(game.Players:GetPlayers()) do
-        if p ~= plr then
-            createPlayerESP(p)
-        end
-    end
-end
-
-function clearESP()
-    for _, player in pairs(game.Players:GetPlayers()) do
-        if player ~= plr then
-            local esp = game.CoreGui:FindFirstChild(player.Name .. "_NevoxESP")
-            if esp then
-                esp:Destroy()
-            end
-        end
-    end
-end
-
--- Initialize ESP for existing players
 createESPForAllPlayers()
-
--- Setup ESP for new players
-game.Players.PlayerAdded:Connect(function(player)
-    if player ~= plr then
-        createPlayerESP(player)
-    end
-end)
-
--- Clean up ESP when player leaves
-game.Players.PlayerRemoving:Connect(function(player)
-    local esp = game.CoreGui:FindFirstChild(player.Name .. "_NevoxESP")
-    if esp then
-        esp:Destroy()
-    end
-end)
-
--- =================== REST OF YOUR UI CODE ===================
-for Index = 1, 2 do 
-    local Section = CarPage:Section({Name = "Automobiles "..Index, Description = "Exploits for automobiles", Icon = "123944728972740", Side = Index})
-
-    local Toggle = Section:Toggle({
-        Name = "Speed",
-        Flag = "Speed",
-        Default = false,
-        Callback = function(Value)
-            print(Value)
-        end
-    })
-
-    local ToggleSettings = Toggle:Settings(300)
-
-    for i = 1, 15 do 
-        ToggleSettings:Slider({
-            Name = "Speed",
-            Flag = "Speed"..i,
-            Min = 1,
-            Suffix = "km/h",
-            Max = 100,
-            Default = 0,
-            Decimals = 1,
-            Callback = function(Value)
-                print(Value)
-            end
-        })
-
-        ToggleSettings:Label("i cant feel my face"):Colorpicker({
-            Name = "Color",
-            Flag = "Color",
-            Default = Color3.fromRGB(255, 255, 255),
-            Callback = function(Value)
-                print(Value)
-            end
-        })
-    end
-
-    Section:Slider({
-        Name = "Speed",
-        Flag = "Speed",
-        Min = 1,
-        Suffix = "km/h",
-        Max = 100,
-        Default = 0,
-        Decimals = 1,
-        Callback = function(Value)
-            print(Value)
-        end
-    })
-
-    Section:Dropdown({
-        Name = "Dropdown",
-        Flag = "Dropdown",
-        Default = {"First"},
-        Items = {"First", "Second", "Third", "Fourth", "Sixth", "Seventh", "Eighth", "Ninth", "Tenth"},
-        Multi = true,
-        Callback = function(Value)
-            print(Value)
-        end
-    })
-
-    Section:Label("this a label boi")
-    Section:Label("i cant feel my face"):Colorpicker({
-        Name = "Color",
-        Flag = "Color",
-        Default = Color3.fromRGB(255, 255, 255),
-        Callback = function(Value)
-            print(Value)
-        end
-    })
-
-    Section:Keybind({
-        Name = "triple t",
-        Flag = "Keybind",
-        Default = Enum.KeyCode.X,
-        Callback = function(Value)
-            print(Value)
-        end
-    })
-
-    Section:Textbox({
-        Flag = "Text",
-        Default = "Text",
-        Numeric = false,
-        Placeholder = "...",
-        Finished = true,
-        Callback = function(Value)
-            print(Value)
-        end
-    })
-
-    local b = Section:Listbox({
-        Flag = "Listbox",
-        Default = "First",
-        Size = 275,
-        Items = {"First", "Second", "Third", "Fourth", "Sixth", "Seventh", "Eighth", "Ninth", "Tenth"},
-        Multi = false,
-        Callback = function(Value)
-            print(Value)
-        end
-    })
-
-    for i = 1, 50 do 
-        b:Add(i)
-    end
-end
 
 Library:Notification({
     Title = "Nevox BBR Loaded",
-    Description = "ESP and Player features ready!",
+    Description = "ESP, Player mods, Kill Aura, Auto Heal/Eat ready!",
     Duration = 5,
     Icon = "73789337996373"
 })
