@@ -70,7 +70,7 @@ local autoEatCPS = 2
 
 -- Combat Variables
 local killAuraEnabled = false
-local killAuraRange = 30 -- Increased from 5 to 30
+local killAuraRange = 30
 local kaTargetCount = 1
 local kaSwingCooldown = 0.1
 
@@ -544,7 +544,7 @@ local itemdropdown = PickupSection:Dropdown({
         -- Check if "All" is selected
         if Value["All"] then
             hasAll = true
-            -- Select all individual items except "All"
+            -- Select all individual items
             for _, item in ipairs(allItems) do
                 table.insert(selectedItems, item)
             end
@@ -556,17 +556,6 @@ local itemdropdown = PickupSection:Dropdown({
                 end
             end
         end
-        
-        -- Update the dropdown display
-        if hasAll then
-            -- Deselect individual items when "All" is selected
-            for _, item in ipairs(allItems) do
-                itemdropdown:Set(item, false)
-            end
-            itemdropdown:Set("All", true)
-        else
-            itemdropdown:Set("All", false)
-        end
     end
 })
 
@@ -576,13 +565,6 @@ local custompickuptoggle = PickupSection:Toggle({
     Default = false,
     Callback = function(Value)
         customPickupEnabled = Value
-        if Value then
-            -- Clear regular pickup selection when custom is enabled
-            selectedItems = {}
-            for _, item in ipairs(dropdownItems) do
-                itemdropdown:Set(item, false)
-            end
-        end
     end
 })
 
@@ -818,25 +800,26 @@ local esprange = ESPSection:Slider({
 -- =================== SETTINGS TAB ===================
 local SettingsSection = SettingsPage:Section({Name = "UI Settings", Description = "Interface settings", Side = 1})
 
--- Store the original KeybindList state
-local originalKeybindListVisible = true
-if Library.KeybindList then
-    originalKeybindListVisible = Library.KeybindList.Visible
-end
-
 SettingsSection:Toggle({
     Name = "Show Keybinds",
     Flag = "ShowKeybinds",
-    Default = originalKeybindListVisible,
+    Default = true,
     Callback = function(Value)
-        if Library.KeybindList then
-            Library.KeybindList.Visible = Value
-        end
+        -- This will be handled by the library's built-in toggle
     end
 })
 
 -- =================== FUNCTIONS ===================
 -- Utility functions
+local function tableFind(tab, item)
+    for i, v in ipairs(tab) do
+        if v == item then
+            return i
+        end
+    end
+    return nil
+end
+
 local function getLayout(itemName)
     local inventory = plr.PlayerGui.MainGui.RightPanel.Inventory:FindFirstChild("List")
     if not inventory then return nil end
@@ -973,7 +956,7 @@ function updateNoSlip(enabled)
     end
 end
 
--- Improved Double Jump function
+-- Double Jump function
 function updateDoubleJump(enabled)
     for _, conn in pairs(doubleJumpConnections) do
         conn:Disconnect()
@@ -1010,14 +993,6 @@ function updateDoubleJump(enabled)
                     root.Velocity = Vector3.new(currentVelocity.X, hum.JumpPower * 1.5, currentVelocity.Z)
                     hasDoubleJumped = true
                     canDoubleJump = false
-                    
-                    -- Visual effect
-                    spawn(function()
-                        local originalGravity = workspace.Gravity
-                        workspace.Gravity = originalGravity * 0.5
-                        wait(0.1)
-                        workspace.Gravity = originalGravity
-                    end)
                 end
             end
         end)
@@ -1087,7 +1062,7 @@ function createPlayerESP(targetPlr)
             for _, v in pairs(tChar:GetChildren()) do
                 if v.Name:lower():find("chest") or v.Name:lower():find("greaves") or v.Name:lower():find("helmet") or v.Name:lower():find("halo") or v.Name:lower():find("crown") then
                     local type = v.Name:split(" ")[1] or v.Name
-                    if not table.find(armorFound, type) then
+                    if not tableFind(armorFound, type) then
                         table.insert(armorFound, type)
                     end
                 end
@@ -1173,7 +1148,7 @@ local function getBushes(range, fruitName)
     return bushes
 end
 
--- Improved tweening function
+-- Tweening function
 local tweening = nil
 local function tweenTo(targetCFrame)
     if tweening then 
@@ -1182,25 +1157,16 @@ local function tweenTo(targetCFrame)
     end
     
     local distance = (root.Position - targetCFrame.Position).Magnitude
-    local duration = math.max(0.1, distance / 50) -- Smoother speed
+    local duration = math.max(0.1, distance / 50)
     
-    -- Create a smooth tween
     local tweenInfo = TweenInfo.new(
         duration,
-        Enum.EasingStyle.Quad, -- Smoother easing
-        Enum.EasingDirection.Out,
-        0, -- No repeats
-        false, -- Not reversing
-        0 -- No delay
+        Enum.EasingStyle.Quad,
+        Enum.EasingDirection.Out
     )
     
     tweening = tspmo:Create(root, tweenInfo, {CFrame = targetCFrame})
     tweening:Play()
-    
-    -- Clean up when done
-    tweening.Completed:Connect(function()
-        tweening = nil
-    end)
 end
 
 -- =================== MAIN LOOPS ===================
@@ -1241,7 +1207,7 @@ task.spawn(function()
             end
         end
         
-        task.wait(0.05) -- Faster checking
+        task.wait(0.05)
     end
 end)
 
@@ -1361,21 +1327,15 @@ task.spawn(function()
                     local itemName = item.Name
                     local entityId = item:GetAttribute("EntityID")
                     
-                    -- Check if item should be picked up
                     local shouldPickup = false
                     
                     if customPickupEnabled and customPickupText ~= "" then
-                        -- Custom pickup mode
                         if string.find(string.lower(itemName), string.lower(customPickupText)) then
                             shouldPickup = true
                         end
                     else
-                        -- Normal pickup mode - check if item is in selectedItems
-                        for _, selectedItem in ipairs(selectedItems) do
-                            if itemName == selectedItem then
-                                shouldPickup = true
-                                break
-                            end
+                        if tableFind(selectedItems, itemName) then
+                            shouldPickup = true
                         end
                     end
                     
@@ -1403,11 +1363,8 @@ task.spawn(function()
                                     shouldPickup = true
                                 end
                             else
-                                for _, selectedItem in ipairs(selectedItems) do
-                                    if itemName == selectedItem then
-                                        shouldPickup = true
-                                        break
-                                    end
+                                if tableFind(selectedItems, itemName) then
+                                    shouldPickup = true
                                 end
                             end
                             
@@ -1431,7 +1388,6 @@ task.spawn(function()
     while true do
         if autoDropEnabled then
             if dropItem == "All" then
-                -- Drop all items in the dropdown list
                 for _, itemName in ipairs(allDropItems) do
                     drop(itemName)
                 end
@@ -1479,7 +1435,7 @@ task.spawn(function()
     end
 end)
 
--- Tween to Plant Box (improved)
+-- Tween to Plant Box
 task.spawn(function()
     while true do
         if tweenToPlantBox then
@@ -1494,11 +1450,11 @@ task.spawn(function()
                 end
             end
         end
-        task.wait(0.2) -- Less frequent checking for smoother movement
+        task.wait(0.2)
     end
 end)
 
--- Tween to Bush + Plant Box (improved)
+-- Tween to Bush + Plant Box
 task.spawn(function()
     while true do
         if tweenToBush then
@@ -1523,7 +1479,7 @@ task.spawn(function()
                 end
             end
         end
-        task.wait(0.2) -- Less frequent checking for smoother movement
+        task.wait(0.2)
     end
 end)
 
