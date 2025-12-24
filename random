@@ -70,7 +70,7 @@ local autoEatCPS = 2
 
 -- Combat Variables
 local killAuraEnabled = false
-local killAuraRange = 5
+local killAuraRange = 30 -- Increased from 5 to 30
 local kaTargetCount = 1
 local kaSwingCooldown = 0.1
 
@@ -114,6 +114,7 @@ local canDoubleJump = false
 local hasDoubleJumped = false
 local doubleJumpConnections = {}
 local doubleJumpEnabled = false
+local lastJumpTime = 0
 
 -- Fruit to Item ID mapping
 local fruitToItemId = {
@@ -144,12 +145,12 @@ local allItems = {
     "Essence", "Emerald", "Raw Emerald", "Pink Diamond", "Raw Pink Diamond", 
     "Void Shard", "Jelly", "Magnetite", "Raw Magnetite", "Adurite", 
     "Raw Adurite", "Ice Cube", "Stone", "Iron", "Raw Iron", "Steel", 
-    "Hide", "Leaves", "Log", "Wood", "Pie", "All"
+    "Hide", "Leaves", "Log", "Wood", "Pie"
 }
 
 -- All items for dropping
 local allDropItems = {
-    "Bloodfruit", "Jelly", "Bluefruit", "Log", "Leaves", "Wood", "All"
+    "Bloodfruit", "Jelly", "Bluefruit", "Log", "Leaves", "Wood"
 }
 
 -- =================== MAIN TAB ===================
@@ -168,7 +169,7 @@ local wsslider = MainSection:Slider({
     Name = "Walkspeed Value",
     Flag = "WalkSpeedValue",
     Min = 10,
-    Max = 24,
+    Max = 100,
     Suffix = "studs",
     Default = 16,
     Decimals = 1,
@@ -192,7 +193,7 @@ local jpslider = MainSection:Slider({
     Name = "JumpPower Value",
     Flag = "JumpPowerValue",
     Min = 30,
-    Max = 80,
+    Max = 150,
     Suffix = "power",
     Default = 50,
     Decimals = 1,
@@ -216,7 +217,7 @@ local hheightslider = MainSection:Slider({
     Name = "HipHeight Value",
     Flag = "HipHeightValue",
     Min = 0.1,
-    Max = 7,
+    Max = 15,
     Suffix = "studs",
     Default = 2,
     Decimals = 1,
@@ -278,9 +279,9 @@ local killaurarangeslider = CombatSection:Slider({
     Name = "Range",
     Flag = "KillAuraRange",
     Min = 1,
-    Max = 9,
+    Max = 50,
     Suffix = "studs",
-    Default = 5,
+    Default = 30,
     Decimals = 1,
     Callback = function(Value)
         killAuraRange = Value
@@ -326,7 +327,7 @@ local heal_fruitdropdown = AutoHealSection:Dropdown({
     Name = "Fruit for Auto Heal",
     Flag = "HealFruit",
     Default = "Bloodfruit",
-    Items = {"Bloodfruit", "Bluefruit", "Lemon", "Coconut", "Jelly", "Banana", "Orange", "Oddberry", "Berry", "Strangefruit", "Strawberry", "Sunjfruit", "Pumpkin", "Prickly Pear", "Apple", "Barley", "Cloudberry", "Carrot"},
+    Items = {"Bloodfruit", "Bluefruit", "Lemon", "Coconut", "Jelly", "Banana", "Orange", "Oddberry", "Berry", "Strangefruit", "Strawberry", "Sunfruit", "Pumpkin", "Prickly Pear", "Apple", "Barley", "Cloudberry", "Carrot"},
     Multi = false,
     Callback = function(Value)
         autoHealFruit = Value
@@ -359,7 +360,7 @@ local eat_fruitdropdown = AutoHealSection:Dropdown({
     Name = "Fruit for Auto Eat",
     Flag = "EatFruit",
     Default = "Coconut",
-    Items = {"Bloodfruit", "Bluefruit", "Lemon", "Coconut", "Jelly", "Banana", "Orange", "Oddberry", "Berry", "Strangefruit", "Strawberry", "Sunjfruit", "Pumpkin", "Prickly Pear", "Apple", "Barley", "Cloudberry", "Carrot"},
+    Items = {"Bloodfruit", "Bluefruit", "Lemon", "Coconut", "Jelly", "Banana", "Orange", "Oddberry", "Berry", "Strangefruit", "Strawberry", "Sunfruit", "Pumpkin", "Prickly Pear", "Apple", "Barley", "Cloudberry", "Carrot"},
     Multi = false,
     Callback = function(Value)
         autoEatFruit = Value
@@ -383,10 +384,10 @@ local autoeatcps = AutoHealSection:Slider({
     Name = "Eat Speed (CPS)",
     Flag = "EatCPS",
     Min = 1,
-    Max = 5,
+    Max = 120,
     Suffix = "cps",
     Default = 2,
-    Decimals = 1,
+    Decimals = 0,
     Callback = function(Value)
         autoEatCPS = Value
     end
@@ -408,7 +409,7 @@ local resourceaurarange = ResourceSection:Slider({
     Name = "Range",
     Flag = "ResourceAuraRange",
     Min = 1,
-    Max = 20,
+    Max = 50,
     Suffix = "studs",
     Default = 20,
     Decimals = 1,
@@ -456,7 +457,7 @@ local critterrangeslider = CritterSection:Slider({
     Name = "Range",
     Flag = "CritterRange",
     Min = 1,
-    Max = 20,
+    Max = 50,
     Suffix = "studs",
     Default = 20,
     Decimals = 1,
@@ -514,7 +515,7 @@ local pickuprangeslider = PickupSection:Slider({
     Name = "Pickup Range",
     Flag = "PickupRange",
     Min = 1,
-    Max = 35,
+    Max = 50,
     Suffix = "studs",
     Default = 20,
     Decimals = 1,
@@ -523,28 +524,48 @@ local pickuprangeslider = PickupSection:Slider({
     end
 })
 
+-- Create the dropdown with All option
+local dropdownItems = {}
+for _, item in ipairs(allItems) do
+    table.insert(dropdownItems, item)
+end
+table.insert(dropdownItems, "All")
+
 local itemdropdown = PickupSection:Dropdown({
     Name = "Items to Pickup",
     Flag = "ItemDropdown",
     Default = {"Leaves", "Log"},
-    Items = allItems,
+    Items = dropdownItems,
     Multi = true,
     Callback = function(Value)
         selectedItems = {}
-        for item, state in pairs(Value) do
-            if state then
-                if item == "All" then
-                    -- Select all items except "All"
-                    for _, allItem in ipairs(allItems) do
-                        if allItem ~= "All" then
-                            table.insert(selectedItems, allItem)
-                        end
-                    end
-                    break
-                else
+        local hasAll = false
+        
+        -- Check if "All" is selected
+        if Value["All"] then
+            hasAll = true
+            -- Select all individual items except "All"
+            for _, item in ipairs(allItems) do
+                table.insert(selectedItems, item)
+            end
+        else
+            -- Only add selected individual items
+            for item, state in pairs(Value) do
+                if state and item ~= "All" then
                     table.insert(selectedItems, item)
                 end
             end
+        end
+        
+        -- Update the dropdown display
+        if hasAll then
+            -- Deselect individual items when "All" is selected
+            for _, item in ipairs(allItems) do
+                itemdropdown:Set(item, false)
+            end
+            itemdropdown:Set("All", true)
+        else
+            itemdropdown:Set("All", false)
         end
     end
 })
@@ -555,6 +576,13 @@ local custompickuptoggle = PickupSection:Toggle({
     Default = false,
     Callback = function(Value)
         customPickupEnabled = Value
+        if Value then
+            -- Clear regular pickup selection when custom is enabled
+            selectedItems = {}
+            for _, item in ipairs(dropdownItems) do
+                itemdropdown:Set(item, false)
+            end
+        end
     end
 })
 
@@ -581,11 +609,18 @@ local droptoggle = DropSection:Toggle({
     end
 })
 
+-- Create drop dropdown with All option
+local dropDropdownItems = {}
+for _, item in ipairs(allDropItems) do
+    table.insert(dropDropdownItems, item)
+end
+table.insert(dropDropdownItems, "All")
+
 local dropdropdown = DropSection:Dropdown({
     Name = "Select Item to Drop",
     Flag = "DropDropdown",
     Default = "Bloodfruit",
-    Items = allDropItems,
+    Items = dropDropdownItems,
     Multi = false,
     Callback = function(Value)
         dropItem = Value
@@ -620,7 +655,7 @@ local fruitdropdown = FarmingSection:Dropdown({
     Name = "Select Fruit",
     Flag = "FruitDropdown",
     Default = "Bloodfruit",
-    Items = {"Bloodfruit", "Bluefruit", "Lemon", "Coconut", "Jelly", "Banana", "Orange", "Oddberry", "Berry", "Strangefruit", "Strawberry", "Sunjfruit", "Pumpkin", "Prickly Pear", "Apple", "Barley", "Cloudberry", "Carrot"},
+    Items = {"Bloodfruit", "Bluefruit", "Lemon", "Coconut", "Jelly", "Banana", "Orange", "Oddberry", "Berry", "Strangefruit", "Strawberry", "Sunfruit", "Pumpkin", "Prickly Pear", "Apple", "Barley", "Cloudberry", "Carrot"},
     Multi = false,
     Callback = function(Value)
         selectedFruit = Value
@@ -640,7 +675,7 @@ local plantrangeslider = FarmingSection:Slider({
     Name = "Plant Range",
     Flag = "PlantRange",
     Min = 1,
-    Max = 30,
+    Max = 100,
     Suffix = "studs",
     Default = 30,
     Decimals = 1,
@@ -675,7 +710,7 @@ local harvestrangeslider = FarmingSection:Slider({
     Name = "Harvest Range",
     Flag = "HarvestRange",
     Min = 1,
-    Max = 30,
+    Max = 100,
     Suffix = "studs",
     Default = 30,
     Decimals = 1,
@@ -714,7 +749,7 @@ local tweenrangeslider = TweenSection:Slider({
     Name = "Range",
     Flag = "TweenRange",
     Min = 1,
-    Max = 250,
+    Max = 500,
     Suffix = "studs",
     Default = 250,
     Decimals = 1,
@@ -724,7 +759,6 @@ local tweenrangeslider = TweenSection:Slider({
 })
 
 -- =================== ESP TAB ===================
--- Create a section for ESP toggles (but keep them visually together)
 local ESPSection = ESPPage:Section({Name = "ESP Settings", Description = "Player ESP Configuration", Side = 1})
 
 local esptoggle = ESPSection:Toggle({
@@ -784,10 +818,16 @@ local esprange = ESPSection:Slider({
 -- =================== SETTINGS TAB ===================
 local SettingsSection = SettingsPage:Section({Name = "UI Settings", Description = "Interface settings", Side = 1})
 
+-- Store the original KeybindList state
+local originalKeybindListVisible = true
+if Library.KeybindList then
+    originalKeybindListVisible = Library.KeybindList.Visible
+end
+
 SettingsSection:Toggle({
     Name = "Show Keybinds",
     Flag = "ShowKeybinds",
-    Default = false,
+    Default = originalKeybindListVisible,
     Callback = function(Value)
         if Library.KeybindList then
             Library.KeybindList.Visible = Value
@@ -933,6 +973,7 @@ function updateNoSlip(enabled)
     end
 end
 
+-- Improved Double Jump function
 function updateDoubleJump(enabled)
     for _, conn in pairs(doubleJumpConnections) do
         conn:Disconnect()
@@ -944,29 +985,45 @@ function updateDoubleJump(enabled)
         canDoubleJump = false
         hasDoubleJumped = false
         
-        local groundCheck = runs.RenderStepped:Connect(function()
+        local connection1 = runs.Heartbeat:Connect(function()
             if hum and hum.Parent then
-                if hum.FloorMaterial == Enum.Material.Air and not hasDoubleJumped then
+                if hum.FloorMaterial == Enum.Material.Air then
                     canDoubleJump = true
-                elseif hum.FloorMaterial ~= Enum.Material.Air then
+                else
                     hasDoubleJumped = false
-                    canDoubleJump = true
+                    canDoubleJump = false
                 end
             end
         end)
         
-        local jumpInput = uis.InputBegan:Connect(function(input, gameProcessed)
-            if gameProcessed or not hum or not hum.Parent then return end
-            if input.KeyCode == Enum.KeyCode.Space and hum.FloorMaterial == Enum.Material.Air and canDoubleJump then
-                local currentVelocity = root.Velocity
-                root.Velocity = Vector3.new(currentVelocity.X, hum.JumpPower * 1.5, currentVelocity.Z)
-                hasDoubleJumped = true
-                canDoubleJump = false
+        local connection2 = uis.InputBegan:Connect(function(input, gameProcessed)
+            if gameProcessed then return end
+            
+            if input.KeyCode == Enum.KeyCode.Space then
+                if hum.FloorMaterial ~= Enum.Material.Air then
+                    -- Normal jump
+                    hasDoubleJumped = false
+                    canDoubleJump = true
+                elseif canDoubleJump and not hasDoubleJumped then
+                    -- Double jump
+                    local currentVelocity = root.Velocity
+                    root.Velocity = Vector3.new(currentVelocity.X, hum.JumpPower * 1.5, currentVelocity.Z)
+                    hasDoubleJumped = true
+                    canDoubleJump = false
+                    
+                    -- Visual effect
+                    spawn(function()
+                        local originalGravity = workspace.Gravity
+                        workspace.Gravity = originalGravity * 0.5
+                        wait(0.1)
+                        workspace.Gravity = originalGravity
+                    end)
+                end
             end
         end)
         
-        table.insert(doubleJumpConnections, groundCheck)
-        table.insert(doubleJumpConnections, jumpInput)
+        table.insert(doubleJumpConnections, connection1)
+        table.insert(doubleJumpConnections, connection2)
     end
 end
 
@@ -1116,22 +1173,41 @@ local function getBushes(range, fruitName)
     return bushes
 end
 
+-- Improved tweening function
 local tweening = nil
-local function tweenTo(target)
-    if tweening then tweening:Cancel() end
-    local distance = (root.Position - target.Position).Magnitude
-    local duration = distance / 21
-    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
-    local tween = tspmo:Create(root, tweenInfo, { CFrame = target })
-    tween:Play()
-    tweening = tween
+local function tweenTo(targetCFrame)
+    if tweening then 
+        tweening:Cancel() 
+        tweening = nil
+    end
+    
+    local distance = (root.Position - targetCFrame.Position).Magnitude
+    local duration = math.max(0.1, distance / 50) -- Smoother speed
+    
+    -- Create a smooth tween
+    local tweenInfo = TweenInfo.new(
+        duration,
+        Enum.EasingStyle.Quad, -- Smoother easing
+        Enum.EasingDirection.Out,
+        0, -- No repeats
+        false, -- Not reversing
+        0 -- No delay
+    )
+    
+    tweening = tspmo:Create(root, tweenInfo, {CFrame = targetCFrame})
+    tweening:Play()
+    
+    -- Clean up when done
+    tweening.Completed:Connect(function()
+        tweening = nil
+    end)
 end
 
 -- =================== MAIN LOOPS ===================
 -- Auto Heal and Auto Eat
 task.spawn(function()
     while true do
-        local eatDelay = 1 / autoEatCPS
+        local eatDelay = 1 / math.max(1, autoEatCPS)
         
         if autoHealEnabled then
             local health = getHealth()
@@ -1165,7 +1241,7 @@ task.spawn(function()
             end
         end
         
-        task.wait(0.1)
+        task.wait(0.05) -- Faster checking
     end
 end)
 
@@ -1294,9 +1370,12 @@ task.spawn(function()
                             shouldPickup = true
                         end
                     else
-                        -- Normal pickup mode
-                        if table.find(selectedItems, itemName) then
-                            shouldPickup = true
+                        -- Normal pickup mode - check if item is in selectedItems
+                        for _, selectedItem in ipairs(selectedItems) do
+                            if itemName == selectedItem then
+                                shouldPickup = true
+                                break
+                            end
                         end
                     end
                     
@@ -1324,8 +1403,11 @@ task.spawn(function()
                                     shouldPickup = true
                                 end
                             else
-                                if table.find(selectedItems, itemName) then
-                                    shouldPickup = true
+                                for _, selectedItem in ipairs(selectedItems) do
+                                    if itemName == selectedItem then
+                                        shouldPickup = true
+                                        break
+                                    end
                                 end
                             end
                             
@@ -1351,9 +1433,7 @@ task.spawn(function()
             if dropItem == "All" then
                 -- Drop all items in the dropdown list
                 for _, itemName in ipairs(allDropItems) do
-                    if itemName ~= "All" then
-                        drop(itemName)
-                    end
+                    drop(itemName)
                 end
             else
                 drop(dropItem)
@@ -1399,25 +1479,26 @@ task.spawn(function()
     end
 end)
 
--- Tween to Plant Box
+-- Tween to Plant Box (improved)
 task.spawn(function()
     while true do
         if tweenToPlantBox then
             local plantBoxes = getPlantBoxes(tweenRange)
             table.sort(plantBoxes, function(a, b) return a.dist < b.dist end)
+            
             for _, box in ipairs(plantBoxes) do
                 if not box.deployable:FindFirstChild("Seed") then
-                    local target = box.deployable.PrimaryPart.CFrame + Vector3.new(0, 5, 0)
+                    local target = box.deployable.PrimaryPart.CFrame + Vector3.new(0, 3, 0)
                     tweenTo(target)
                     break
                 end
             end
         end
-        task.wait(0.1)
+        task.wait(0.2) -- Less frequent checking for smoother movement
     end
 end)
 
--- Tween to Bush + Plant Box
+-- Tween to Bush + Plant Box (improved)
 task.spawn(function()
     while true do
         if tweenToBush then
@@ -1426,7 +1507,7 @@ task.spawn(function()
             
             if #bushes > 0 then
                 for _, bush in ipairs(bushes) do
-                    local target = bush.model.PrimaryPart.CFrame + Vector3.new(0, 5, 0)
+                    local target = bush.model.PrimaryPart.CFrame + Vector3.new(0, 3, 0)
                     tweenTo(target)
                     break
                 end
@@ -1435,14 +1516,14 @@ task.spawn(function()
                 table.sort(plantBoxes, function(a, b) return a.dist < b.dist end)
                 for _, box in ipairs(plantBoxes) do
                     if not box.deployable:FindFirstChild("Seed") then
-                        local target = box.deployable.PrimaryPart.CFrame + Vector3.new(0, 5, 0)
+                        local target = box.deployable.PrimaryPart.CFrame + Vector3.new(0, 3, 0)
                         tweenTo(target)
                         break
                     end
                 end
             end
         end
-        task.wait(0.1)
+        task.wait(0.2) -- Less frequent checking for smoother movement
     end
 end)
 
