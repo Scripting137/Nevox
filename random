@@ -6,24 +6,19 @@ local Window = Library:Window({
     Logo = "120959262762131"
 })
 
-local KeybindList = Library:KeybindList("Keybinds")
-local showKeybindsToggle = false
-
--- Main tabs
+-- Main tabs with icons
 Window:Category("Main Features")
 local MainPage = Window:Page({Name = "Main", Icon = "134236649319095"})
-local CombatPage = Window:Page({Name = "Combat", Icon = "axe"})
-local MapPage = Window:Page({Name = "Map", Icon = "trees"})
-local PickupPage = Window:Page({Name = "Pickup", Icon = "backpack"})
-local FarmingPage = Window:Page({Name = "Farming", Icon = "sprout"})
-local ExtraPage = Window:Page({Name = "Extra", Icon = "plus"})
-local AutoHealPage = Window:Page({Name = "Auto Heal", Icon = "108483290299506", Columns = 1})
+local CombatPage = Window:Page({Name = "Combat", Icon = "100050851789190"})
+local MapPage = Window:Page({Name = "Map", Icon = "123944728972740"})
+local PickupPage = Window:Page({Name = "Pickup", Icon = "108839695397679"})
+local FarmingPage = Window:Page({Name = "Farming", Icon = "123554105934637"})
 
-Window:Category("Visual & ESP")
-local ESPPage = Window:Page({Name = "ESP", Icon = "100050851789190", Columns = 1})
+Window:Category("Visual")
+local ESPPage = Window:Page({Name = "ESP", Icon = "138827881557940", Columns = 1})
 
 Window:Category("Settings")
-local SettingsPage = Library:CreateSettingsPage(Window, KeybindList)
+local SettingsPage = Library:CreateSettingsPage(Window)
 
 -- Services
 local rs = game:GetService("ReplicatedStorage")
@@ -71,7 +66,7 @@ local autoHealFruit = "Bloodfruit"
 local autoEatFruit = "Coconut"
 local autoHealThreshold = 90
 local autoEatThreshold = 90
-local autoEatCPS = 2 -- Slower eating speed
+local autoEatCPS = 2
 
 -- Combat Variables
 local killAuraEnabled = false
@@ -100,6 +95,8 @@ local autoDropEnabled = false
 local autoDropCustomEnabled = false
 local dropItem = "Bloodfruit"
 local customDropItem = "Bloodfruit"
+local customPickupText = ""
+local customPickupEnabled = false
 
 -- Farming Variables
 local plantToggle = false
@@ -111,16 +108,6 @@ local selectedFruit = "Bloodfruit"
 local tweenToPlantBox = false
 local tweenToBush = false
 local tweenRange = 250
-
--- Orbit Variables
-local orbitEnabled = false
-local orbitRange = 20
-local orbitRadius = 10
-local orbitSpeed = 5
-local itemHeight = 3
-local attachedItems = {}
-local itemAngles = {}
-local lastPositions = {}
 
 -- Double Jump Variables
 local canDoubleJump = false
@@ -150,144 +137,20 @@ local fruitToItemId = {
     Carrot = 147
 }
 
--- =================== AUTO HEAL TAB ===================
-local AutoHealSection = AutoHealPage:Section({Name = "Auto Heal Settings", Description = "Automatic healing and eating", Side = 1})
+-- All items for pickups
+local allItems = {
+    "Berry", "Bloodfruit", "Bluefruit", "Lemon", "Strawberry", "Gold", 
+    "Raw Gold", "Crystal Chunk", "Coin", "Coins", "Coin2", "Coin Stack", 
+    "Essence", "Emerald", "Raw Emerald", "Pink Diamond", "Raw Pink Diamond", 
+    "Void Shard", "Jelly", "Magnetite", "Raw Magnetite", "Adurite", 
+    "Raw Adurite", "Ice Cube", "Stone", "Iron", "Raw Iron", "Steel", 
+    "Hide", "Leaves", "Log", "Wood", "Pie", "All"
+}
 
-local autohealtoggle = AutoHealSection:Toggle({
-    Name = "Auto Heal",
-    Flag = "AutoHealToggle",
-    Default = false,
-    Callback = function(Value)
-        autoHealEnabled = Value
-    end
-})
-
-local heal_fruitdropdown = AutoHealSection:Dropdown({
-    Name = "Fruit for Auto Heal",
-    Flag = "HealFruit",
-    Default = "Bloodfruit",
-    Items = {"Bloodfruit", "Bluefruit", "Lemon", "Coconut", "Jelly", "Banana", "Orange", "Oddberry", "Berry", "Strangefruit", "Strawberry", "Sunjfruit", "Pumpkin", "Prickly Pear", "Apple", "Barley", "Cloudberry", "Carrot"},
-    Multi = false,
-    Callback = function(Value)
-        autoHealFruit = Value
-    end
-})
-
-local autohealslider = AutoHealSection:Slider({
-    Name = "Heal Below %",
-    Flag = "HealThreshold",
-    Min = 1,
-    Max = 100,
-    Suffix = "%",
-    Default = 90,
-    Decimals = 1,
-    Callback = function(Value)
-        autoHealThreshold = Value
-    end
-})
-
-local autoeattoggle = AutoHealSection:Toggle({
-    Name = "Auto Eat",
-    Flag = "AutoEatToggle",
-    Default = false,
-    Callback = function(Value)
-        autoEatEnabled = Value
-    end
-})
-
-local eat_fruitdropdown = AutoHealSection:Dropdown({
-    Name = "Fruit for Auto Eat",
-    Flag = "EatFruit",
-    Default = "Coconut",
-    Items = {"Bloodfruit", "Bluefruit", "Lemon", "Coconut", "Jelly", "Banana", "Orange", "Oddberry", "Berry", "Strangefruit", "Strawberry", "Sunjfruit", "Pumpkin", "Prickly Pear", "Apple", "Barley", "Cloudberry", "Carrot"},
-    Multi = false,
-    Callback = function(Value)
-        autoEatFruit = Value
-    end
-})
-
-local autoeatslider = AutoHealSection:Slider({
-    Name = "Eat Below %",
-    Flag = "EatThreshold",
-    Min = 1,
-    Max = 100,
-    Suffix = "%",
-    Default = 90,
-    Decimals = 1,
-    Callback = function(Value)
-        autoEatThreshold = Value
-    end
-})
-
-local autoeatcps = AutoHealSection:Slider({
-    Name = "Eat Speed (CPS)",
-    Flag = "EatCPS",
-    Min = 1,
-    Max = 5, -- Limited to 5 for slower eating
-    Suffix = "cps",
-    Default = 2,
-    Decimals = 1,
-    Callback = function(Value)
-        autoEatCPS = Value
-    end
-})
-
--- =================== ESP TAB ===================
-local ESPMainSection = ESPPage:Section({Name = "ESP Settings", Description = "Player ESP Configuration", Side = 1})
-
-local esptoggle = ESPMainSection:Toggle({
-    Name = "Enable ESP",
-    Flag = "ESPToggle",
-    Default = false,
-    Callback = function(Value)
-        espEnabled = Value
-        if not Value then
-            clearESP()
-        else
-            createESPForAllPlayers()
-        end
-    end
-})
-
-local esphealth = ESPMainSection:Toggle({
-    Name = "Show HP",
-    Flag = "ESPHealth",
-    Default = true,
-    Callback = function(Value)
-        espShowHP = Value
-    end
-})
-
-local esparmor = ESPMainSection:Toggle({
-    Name = "Show Armor",
-    Flag = "ESPArmor",
-    Default = true,
-    Callback = function(Value)
-        espShowArmor = Value
-    end
-})
-
-local espweapon = ESPMainSection:Toggle({
-    Name = "Show Weapon",
-    Flag = "ESPWeapon",
-    Default = true,
-    Callback = function(Value)
-        espShowWeapon = Value
-    end
-})
-
-local esprange = ESPMainSection:Slider({
-    Name = "Max Distance",
-    Flag = "ESPRange",
-    Min = 0,
-    Max = 5000,
-    Suffix = "m",
-    Default = 2500,
-    Decimals = 1,
-    Callback = function(Value)
-        espMaxDistance = Value
-    end
-})
+-- All items for dropping
+local allDropItems = {
+    "Bloodfruit", "Jelly", "Bluefruit", "Log", "Leaves", "Wood", "All"
+}
 
 -- =================== MAIN TAB ===================
 local MainSection = MainPage:Section({Name = "Player Stats", Description = "Modify your player stats", Side = 1})
@@ -382,21 +245,7 @@ local doublejumptoggle = MainSection:Toggle({
     end
 })
 
--- Utility buttons
 local UtilitySection = MainPage:Section({Name = "Utilities", Description = "Utility features", Side = 2})
-
-UtilitySection:Button({
-    Name = "Infinite Yield",
-    Callback = function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/decryp1/herklesiy/refs/heads/main/hiy"))()
-        Library:Notification({
-            Title = "Loaded",
-            Description = "Infinite Yield loaded!",
-            Duration = 3,
-            Icon = "73789337996373"
-        })
-    end
-})
 
 UtilitySection:Button({
     Name = "Reset Character",
@@ -413,61 +262,7 @@ UtilitySection:Button({
     end
 })
 
-UtilitySection:Button({
-    Name = "Copy Job ID",
-    Callback = function()
-        setclipboard(game.JobId)
-        Library:Notification({
-            Title = "Copied",
-            Description = "Job ID copied to clipboard!",
-            Duration = 3,
-            Icon = "73789337996373"
-        })
-    end
-})
-
-UtilitySection:Button({
-    Name = "Eat 1 Bloodfruit",
-    Callback = function()
-        local inventoryList = plr.PlayerGui.MainGui.RightPanel.Inventory:FindFirstChild("List")
-        if inventoryList then
-            local item = inventoryList:FindFirstChild("Bloodfruit")
-            if item and item:IsA("ImageLabel") then
-                if packets and packets.UseBagItem and packets.UseBagItem.send then
-                    packets.UseBagItem.send(item.LayoutOrder)
-                    Library:Notification({
-                        Title = "Success",
-                        Description = "Ate 1 Bloodfruit!",
-                        Duration = 3,
-                        Icon = "73789337996373"
-                    })
-                end
-            else
-                Library:Notification({
-                    Title = "Error",
-                    Description = "No Bloodfruit found in inventory!",
-                    Duration = 3,
-                    Icon = "73789337996373"
-                })
-            end
-        end
-    end
-})
-
--- Show Keybinds Toggle in Settings
-local SettingsSection = SettingsPage:Section({Name = "UI Settings", Description = "Interface settings", Side = 1})
-
-SettingsSection:Toggle({
-    Name = "Show Keybinds",
-    Flag = "ShowKeybinds",
-    Default = false,
-    Callback = function(Value)
-        showKeybindsToggle = Value
-        KeybindList.Visible = Value
-    end
-})
-
--- =================== COMBAT TAB ===================
+-- =================== COMBAT TAB (with Auto Heal) ===================
 local CombatSection = CombatPage:Section({Name = "Kill Aura", Description = "Auto attack players", Side = 1})
 
 local killauratoggle = CombatSection:Toggle({
@@ -513,6 +308,87 @@ local kaswingcooldownslider = CombatSection:Slider({
     Decimals = 2,
     Callback = function(Value)
         kaSwingCooldown = Value
+    end
+})
+
+local AutoHealSection = CombatPage:Section({Name = "Auto Heal", Description = "Automatic healing and eating", Side = 2})
+
+local autohealtoggle = AutoHealSection:Toggle({
+    Name = "Auto Heal",
+    Flag = "AutoHealToggle",
+    Default = false,
+    Callback = function(Value)
+        autoHealEnabled = Value
+    end
+})
+
+local heal_fruitdropdown = AutoHealSection:Dropdown({
+    Name = "Fruit for Auto Heal",
+    Flag = "HealFruit",
+    Default = "Bloodfruit",
+    Items = {"Bloodfruit", "Bluefruit", "Lemon", "Coconut", "Jelly", "Banana", "Orange", "Oddberry", "Berry", "Strangefruit", "Strawberry", "Sunjfruit", "Pumpkin", "Prickly Pear", "Apple", "Barley", "Cloudberry", "Carrot"},
+    Multi = false,
+    Callback = function(Value)
+        autoHealFruit = Value
+    end
+})
+
+local autohealslider = AutoHealSection:Slider({
+    Name = "Heal Below %",
+    Flag = "HealThreshold",
+    Min = 1,
+    Max = 100,
+    Suffix = "%",
+    Default = 90,
+    Decimals = 1,
+    Callback = function(Value)
+        autoHealThreshold = Value
+    end
+})
+
+local autoeattoggle = AutoHealSection:Toggle({
+    Name = "Auto Eat",
+    Flag = "AutoEatToggle",
+    Default = false,
+    Callback = function(Value)
+        autoEatEnabled = Value
+    end
+})
+
+local eat_fruitdropdown = AutoHealSection:Dropdown({
+    Name = "Fruit for Auto Eat",
+    Flag = "EatFruit",
+    Default = "Coconut",
+    Items = {"Bloodfruit", "Bluefruit", "Lemon", "Coconut", "Jelly", "Banana", "Orange", "Oddberry", "Berry", "Strangefruit", "Strawberry", "Sunjfruit", "Pumpkin", "Prickly Pear", "Apple", "Barley", "Cloudberry", "Carrot"},
+    Multi = false,
+    Callback = function(Value)
+        autoEatFruit = Value
+    end
+})
+
+local autoeatslider = AutoHealSection:Slider({
+    Name = "Eat Below %",
+    Flag = "EatThreshold",
+    Min = 1,
+    Max = 100,
+    Suffix = "%",
+    Default = 90,
+    Decimals = 1,
+    Callback = function(Value)
+        autoEatThreshold = Value
+    end
+})
+
+local autoeatcps = AutoHealSection:Slider({
+    Name = "Eat Speed (CPS)",
+    Flag = "EatCPS",
+    Min = 1,
+    Max = 5,
+    Suffix = "cps",
+    Default = 2,
+    Decimals = 1,
+    Callback = function(Value)
+        autoEatCPS = Value
     end
 })
 
@@ -651,15 +527,46 @@ local itemdropdown = PickupSection:Dropdown({
     Name = "Items to Pickup",
     Flag = "ItemDropdown",
     Default = {"Leaves", "Log"},
-    Items = {"Berry", "Bloodfruit", "Bluefruit", "Lemon", "Strawberry", "Gold", "Raw Gold", "Crystal Chunk", "Coin", "Coins", "Coin2", "Coin Stack", "Essence", "Emerald", "Raw Emerald", "Pink Diamond", "Raw Pink Diamond", "Void Shard", "Jelly", "Magnetite", "Raw Magnetite", "Adurite", "Raw Adurite", "Ice Cube", "Stone", "Iron", "Raw Iron", "Steel", "Hide", "Leaves", "Log", "Wood", "Pie"},
+    Items = allItems,
     Multi = true,
     Callback = function(Value)
         selectedItems = {}
         for item, state in pairs(Value) do
             if state then
-                table.insert(selectedItems, item)
+                if item == "All" then
+                    -- Select all items except "All"
+                    for _, allItem in ipairs(allItems) do
+                        if allItem ~= "All" then
+                            table.insert(selectedItems, allItem)
+                        end
+                    end
+                    break
+                else
+                    table.insert(selectedItems, item)
+                end
             end
         end
+    end
+})
+
+local custompickuptoggle = PickupSection:Toggle({
+    Name = "Custom Item Pickup",
+    Flag = "CustomPickupToggle",
+    Default = false,
+    Callback = function(Value)
+        customPickupEnabled = Value
+    end
+})
+
+local custompickuptextbox = PickupSection:Textbox({
+    Name = "Custom Item Name",
+    Flag = "CustomPickupTextbox",
+    Default = "",
+    Numeric = false,
+    Placeholder = "Enter item name...",
+    Finished = true,
+    Callback = function(Value)
+        customPickupText = Value
     end
 })
 
@@ -678,7 +585,7 @@ local dropdropdown = DropSection:Dropdown({
     Name = "Select Item to Drop",
     Flag = "DropDropdown",
     Default = "Bloodfruit",
-    Items = {"Bloodfruit", "Jelly", "Bluefruit", "Log", "Leaves", "Wood"},
+    Items = allDropItems,
     Multi = false,
     Callback = function(Value)
         dropItem = Value
@@ -816,122 +723,73 @@ local tweenrangeslider = TweenSection:Slider({
     end
 })
 
-local PlantBoxSection = FarmingPage:Section({Name = "Plant Box Placement", Description = "Place plant boxes", Side = 2})
-
-PlantBoxSection:Button({
-    Name = "Place 16x16 Plantboxes (256)",
-    Callback = function()
-        placeStructure(16)
-    end
-})
-
-PlantBoxSection:Button({
-    Name = "Place 15x15 Plantboxes (225)",
-    Callback = function()
-        placeStructure(15)
-    end
-})
-
-PlantBoxSection:Button({
-    Name = "Place 10x10 Plantboxes (100)",
-    Callback = function()
-        placeStructure(10)
-    end
-})
-
-PlantBoxSection:Button({
-    Name = "Place 5x5 Plantboxes (25)",
-    Callback = function()
-        placeStructure(5)
-    end
-})
-
--- =================== EXTRA TAB ===================
-local ExtraSection = ExtraPage:Section({Name = "Extra Features", Description = "Additional utilities", Side = 1})
-
-ExtraSection:Button({
-    Name = "Infinite Yield",
-    Callback = function()
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/decryp1/herklesiy/refs/heads/main/hiy"))()
-        Library:Notification({
-            Title = "Loaded",
-            Description = "Infinite Yield loaded!",
-            Duration = 3,
-            Icon = "73789337996373"
-        })
-    end
-})
-
-local OrbitSection = ExtraPage:Section({Name = "Item Orbit", Description = "Orbit items around you", Side = 2})
-
-local orbittoggle = OrbitSection:Toggle({
-    Name = "Item Orbit",
-    Flag = "OrbitToggle",
+-- =================== ESP TAB ===================
+-- Removed sections, all toggles together
+local esptoggle = ESPPage:Toggle({
+    Name = "Enable ESP",
+    Flag = "ESPToggle",
     Default = false,
     Callback = function(Value)
-        orbitEnabled = Value
+        espEnabled = Value
         if not Value then
-            for _, bp in pairs(attachedItems) do
-                if bp and bp.Parent then
-                    bp:Destroy()
-                end
-            end
-            attachedItems = {}
-            itemAngles = {}
-            lastPositions = {}
+            clearESP()
+        else
+            createESPForAllPlayers()
         end
     end
 })
 
-local orbitrangeslider = OrbitSection:Slider({
-    Name = "Grab Range",
-    Flag = "OrbitRange",
-    Min = 1,
-    Max = 50,
-    Suffix = "studs",
-    Default = 20,
-    Decimals = 1,
+local esphealth = ESPPage:Toggle({
+    Name = "Show HP",
+    Flag = "ESPHealth",
+    Default = true,
     Callback = function(Value)
-        orbitRange = Value
+        espShowHP = Value
     end
 })
 
-local orbitradiusslider = OrbitSection:Slider({
-    Name = "Orbit Radius",
-    Flag = "OrbitRadius",
+local esparmor = ESPPage:Toggle({
+    Name = "Show Armor",
+    Flag = "ESPArmor",
+    Default = true,
+    Callback = function(Value)
+        espShowArmor = Value
+    end
+})
+
+local espweapon = ESPPage:Toggle({
+    Name = "Show Weapon",
+    Flag = "ESPWeapon",
+    Default = true,
+    Callback = function(Value)
+        espShowWeapon = Value
+    end
+})
+
+local esprange = ESPPage:Slider({
+    Name = "Max Distance",
+    Flag = "ESPRange",
     Min = 0,
-    Max = 30,
-    Suffix = "studs",
-    Default = 10,
+    Max = 5000,
+    Suffix = "m",
+    Default = 2500,
     Decimals = 1,
     Callback = function(Value)
-        orbitRadius = Value
+        espMaxDistance = Value
     end
 })
 
-local orbitspeedslider = OrbitSection:Slider({
-    Name = "Orbit Speed",
-    Flag = "OrbitSpeed",
-    Min = 0,
-    Max = 10,
-    Suffix = "speed",
-    Default = 5,
-    Decimals = 1,
-    Callback = function(Value)
-        orbitSpeed = Value
-    end
-})
+-- =================== SETTINGS TAB ===================
+local SettingsSection = SettingsPage:Section({Name = "UI Settings", Description = "Interface settings", Side = 1})
 
-local itemheightslider = OrbitSection:Slider({
-    Name = "Item Height",
-    Flag = "ItemHeight",
-    Min = -3,
-    Max = 10,
-    Suffix = "studs",
-    Default = 3,
-    Decimals = 1,
+SettingsSection:Toggle({
+    Name = "Show Keybinds",
+    Flag = "ShowKeybinds",
+    Default = false,
     Callback = function(Value)
-        itemHeight = Value
+        if Library.KeybindList then
+            Library.KeybindList.Visible = Value
+        end
     end
 })
 
@@ -1003,6 +861,8 @@ local function getHunger()
 end
 
 -- Player stats functions
+local walkSpeedConnection, jumpPowerConnection, hipHeightConnection, slopeAngleConnection
+
 function updateWalkspeed(enabled)
     if walkSpeedConnection then
         walkSpeedConnection:Disconnect()
@@ -1265,30 +1125,6 @@ local function tweenTo(target)
     tweening = tween
 end
 
-function placeStructure(gridSize)
-    if not plr or not plr.Character then return end
-    local torso = plr.Character:FindFirstChild("HumanoidRootPart")
-    if not torso then return end
-
-    local startPos = torso.Position - Vector3.new(0, 3, 0)
-    local spacing = 6.04
-
-    for x = 0, gridSize - 1 do
-        for z = 0, gridSize - 1 do
-            task.wait(0.3)
-            local position = startPos + Vector3.new(x * spacing, 0, z * spacing)
-            if packets and packets.PlaceStructure and packets.PlaceStructure.send then
-                packets.PlaceStructure.send{
-                    ["buildingName"] = "Plant Box",
-                    ["yrot"] = 45,
-                    ["vec"] = position,
-                    ["isMobile"] = false
-                }
-            end
-        end
-    end
-end
-
 -- =================== MAIN LOOPS ===================
 -- Auto Heal and Auto Eat
 task.spawn(function()
@@ -1327,7 +1163,7 @@ task.spawn(function()
             end
         end
         
-        task.wait(0.1) -- Reduced from 0.05 to 0.1 for slower checking
+        task.wait(0.1)
     end
 end)
 
@@ -1446,7 +1282,23 @@ task.spawn(function()
                 if item:IsA("BasePart") or item:IsA("MeshPart") then
                     local itemName = item.Name
                     local entityId = item:GetAttribute("EntityID")
-                    if entityId and table.find(selectedItems, itemName) then
+                    
+                    -- Check if item should be picked up
+                    local shouldPickup = false
+                    
+                    if customPickupEnabled and customPickupText ~= "" then
+                        -- Custom pickup mode
+                        if string.find(string.lower(itemName), string.lower(customPickupText)) then
+                            shouldPickup = true
+                        end
+                    else
+                        -- Normal pickup mode
+                        if table.find(selectedItems, itemName) then
+                            shouldPickup = true
+                        end
+                    end
+                    
+                    if shouldPickup and entityId then
                         local dist = (item.Position - root.Position).Magnitude
                         if dist <= pickupRange then
                             pickup(entityId)
@@ -1463,7 +1315,19 @@ task.spawn(function()
                         if item:IsA("BasePart") or item:IsA("MeshPart") then
                             local itemName = item.Name
                             local entityId = item:GetAttribute("EntityID")
-                            if entityId and table.find(selectedItems, itemName) then
+                            
+                            local shouldPickup = false
+                            if customPickupEnabled and customPickupText ~= "" then
+                                if string.find(string.lower(itemName), string.lower(customPickupText)) then
+                                    shouldPickup = true
+                                end
+                            else
+                                if table.find(selectedItems, itemName) then
+                                    shouldPickup = true
+                                end
+                            end
+                            
+                            if shouldPickup and entityId then
                                 local dist = (chest.PrimaryPart.Position - root.Position).Magnitude
                                 if dist <= pickupRange then
                                     pickup(entityId)
@@ -1482,12 +1346,21 @@ end)
 task.spawn(function()
     while true do
         if autoDropEnabled then
-            drop(dropItem)
+            if dropItem == "All" then
+                -- Drop all items in the dropdown list
+                for _, itemName in ipairs(allDropItems) do
+                    if itemName ~= "All" then
+                        drop(itemName)
+                    end
+                end
+            else
+                drop(dropItem)
+            end
         end
         if autoDropCustomEnabled then
             drop(customDropItem)
         end
-        task.wait(0.3) -- Increased delay to prevent rapid dropping
+        task.wait(0.3)
     end
 end)
 
@@ -1571,68 +1444,6 @@ task.spawn(function()
     end
 end)
 
--- Item Orbit
-task.spawn(function()
-    while true do
-        if orbitEnabled then
-            local children = workspace.Items:GetChildren()
-            local angleStep = (math.pi * 2) / math.max(#children, 1)
-            local index = 0
-
-            for _, item in pairs(children) do
-                local primary = item:IsA("BasePart") and item or item:IsA("Model") and item.PrimaryPart
-                if primary and (primary.Position - root.Position).Magnitude <= orbitRange then
-                    if not attachedItems[primary] then
-                        local bp = Instance.new("BodyPosition")
-                        bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-                        bp.D = 1500
-                        bp.P = 25000
-                        bp.Parent = primary
-                        attachedItems[primary] = bp
-                        itemAngles[primary] = index * angleStep
-                        lastPositions[primary] = primary.Position
-                        index += 1
-                    end
-                end
-            end
-        end
-        task.wait()
-    end
-end)
-
--- Orbit movement
-runs.RenderStepped:Connect(function()
-    if not orbitEnabled then return end
-    local time = tick() * orbitSpeed
-    for item, bp in pairs(attachedItems) do
-        if item then
-            local angle = itemAngles[item] + time
-            bp.Position = root.Position + Vector3.new(math.cos(angle) * orbitRadius, itemHeight, math.sin(angle) * orbitRadius)
-        end
-    end
-end)
-
--- Orbit item interaction
-task.spawn(function()
-    while true do
-        if orbitEnabled then
-            for item, bp in pairs(attachedItems) do
-                if item then
-                    local currentPos = item.Position
-                    local lastPos = lastPositions[item]
-                    if lastPos and (currentPos - lastPos).Magnitude < 0.1 then
-                        if packets and packets.ForceInteract and packets.ForceInteract.send then
-                            packets.ForceInteract.send(item:GetAttribute("EntityID"))
-                        end
-                    end
-                    lastPositions[item] = currentPos
-                end
-            end
-        end
-        task.wait(0.1)
-    end
-end)
-
 -- Character reset handler
 plr.CharacterAdded:Connect(function(newChar)
     char = newChar
@@ -1676,7 +1487,7 @@ end)
 
 Library:Notification({
     Title = "Nevox BBR Loaded",
-    Description = "All features from both scripts integrated!",
+    Description = "All features loaded successfully!",
     Duration = 5,
     Icon = "73789337996373"
 })
