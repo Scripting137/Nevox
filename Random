@@ -2,7 +2,7 @@
 -- Using drawing-based ESP with correct armor detection
 
 local LoadingTick = tick()
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Scripting137/Nevoxbackup/refs/heads/main/Nevox%20Ui"))()
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Scripting137/Nevoxbackup/41e16ec51a289319b1e87858a9e26f26f1b865d6/Nevox%20Ui"))()
 
 local windowSize = UDim2.new(0, 400, 0, 400)
 
