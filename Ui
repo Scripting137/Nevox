@@ -3202,12 +3202,12 @@ local Library do
                         Window:SetTransparency(Value)
                     end
                 })
-
                 Settings:Keybind({
                     Name = "Menu Keybind",
                     Flag = "MenuBind",
-                    Default = Enum.KeyCode.Z,
+                    Default = Enum.KeyCode.P,
                     Callback = function(Value)
+                        Window:SetOpen(Value)
                     end
                 })
 
