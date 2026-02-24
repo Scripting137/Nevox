@@ -1,0 +1,206 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+local Library = {}
+
+local function makeDraggable(frame, handle)
+    local dragging, dragStart, startPos
+    handle.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true; dragStart = i.Position; startPos = frame.Position
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(i)
+        if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+            local d = i.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+    end)
+end
+
+local function new(class, props)
+    local inst = Instance.new(class)
+    for k, v in pairs(props or {}) do
+        pcall(function() inst[k] = v end)
+    end
+    return inst
+end
+
+local function grad(parent, kps, rot)
+    local g = new("UIGradient", { Parent = parent, Rotation = rot or 0 })
+    local pts = {}
+    for i, kp in ipairs(kps) do
+        pts[i] = ColorSequenceKeypoint.new(kp[1], Color3.fromRGB(kp[2], kp[3], kp[4]))
+    end
+    g.Color = ColorSequence.new(pts)
+    return g
+end
+
+local BG = Color3.fromRGB(6,6,6)
+local SIDEBAR = Color3.fromRGB(12,12,12)
+local SEP_COL = Color3.fromRGB(44,44,44)
+local ACTIVE_BG = Color3.fromRGB(29,15,34)
+local TOGBG = Color3.fromRGB(45,45,45)
+local NOTIF_BG = Color3.fromRGB(14,14,20)
+local WHITE = Color3.fromRGB(255,255,255)
+local SUBTEXT = Color3.fromRGB(217,217,217)
+local PURPLE_KPS = { {0,173,153,255}, {1,174,90,199} }
+local FILL_KPS = { {0,175,80,199}, {0.5,129,59,147}, {1,124,61,145} }
+local DARK_KPS = { {0,14,17,17}, {1,7,8,9} }
+
+function Library:CreateWindow(hubName)
+    if PlayerGui:FindFirstChild("Lhub") then PlayerGui:FindFirstChild("Lhub"):Destroy() end
+
+    local Lhub = new("ScreenGui", { Name = "Lhub", Parent = PlayerGui, ZIndexBehavior = Enum.ZIndexBehavior.Sibling, ResetOnSpawn = false })
+    local Main = new("Frame", { Name = "Main", Parent = Lhub, BackgroundColor3 = BG, BorderSizePixel = 0, Position = UDim2.new(0.3, 0, 0.3, 0), Size = UDim2.fromOffset(600, 400) })
+    local Topbar = new("Frame", { Name = "Topbar", Parent = Main, BackgroundColor3 = SIDEBAR, BorderSizePixel = 0, Size = UDim2.fromOffset(600, 18), ZIndex = 2 })
+    
+    makeDraggable(Main, Topbar)
+
+    new("TextLabel", { Parent = Topbar, BackgroundTransparency = 1, Position = UDim2.new(0.02, 0, 0, 0), Size = UDim2.new(0.8, 0, 1, 0), Font = Enum.Font.GothamBold, Text = hubName, TextColor3 = WHITE, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 3 })
+    
+    local ExitImg = new("ImageLabel", { Parent = Topbar, BackgroundTransparency = 1, Position = UDim2.new(1, -22, 0, 2), Size = UDim2.fromOffset(16, 16), Image = "rbxassetid://7436812392", ImageColor3 = Color3.fromRGB(180, 180, 180), ZIndex = 3 })
+    local ExitBtn = new("TextButton", { Parent = ExitImg, Size = UDim2.fromScale(1,1), BackgroundTransparency = 1, Text = "" })
+    ExitBtn.MouseButton1Click:Connect(function() Lhub:Destroy() end)
+
+    local Sidebar = new("Frame", { Parent = Main, BackgroundColor3 = SIDEBAR, BorderSizePixel = 0, Position = UDim2.new(0, 0, 0.045, 0), Size = UDim2.fromOffset(120, 382), ZIndex = 2 })
+    local TabHolder = new("Frame", { Parent = Sidebar, BackgroundTransparency = 1, Position = UDim2.fromOffset(6, 12), Size = UDim2.fromOffset(108, 358), ZIndex = 3 })
+    new("UIListLayout", { Parent = TabHolder, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6) })
+
+    local TabHolder2 = new("Frame", { Parent = Main, BackgroundTransparency = 1, Position = UDim2.new(0.2017, 1, 0.045, 1), Size = UDim2.fromOffset(478, 368), ZIndex = 2 })
+    local ScrollFrame = new("ScrollingFrame", { Parent = TabHolder2, BackgroundTransparency = 1, Position = UDim2.fromOffset(4, 4), Size = UDim2.fromOffset(470, 360), ScrollBarThickness = 3, ScrollBarImageColor3 = Color3.fromRGB(129, 59, 147), CanvasSize = UDim2.fromOffset(0, 0), ZIndex = 3 })
+    local scrollLayout = new("UIListLayout", { Parent = ScrollFrame, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6) })
+    scrollLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() ScrollFrame.CanvasSize = UDim2.fromOffset(0, scrollLayout.AbsoluteContentSize.Y + 10) end)
+
+    local WaterMark = new("Frame", { Name = "WaterMark", Parent = Lhub, BackgroundColor3 = NOTIF_BG, BorderSizePixel = 0, Position = UDim2.fromOffset(10, 10), Size = UDim2.fromOffset(200, 22), ZIndex = 50 })
+    grad(new("Frame", { Parent = WaterMark, BorderSizePixel = 0, Position = UDim2.fromOffset(1, 1), Size = UDim2.new(1, -2, 0, 1), ZIndex = 51 }), PURPLE_KPS)
+    local wmText = new("TextLabel", { Parent = WaterMark, BackgroundTransparency = 1, Position = UDim2.fromOffset(3, 2), Size = UDim2.new(1, -3, 0.9, 0), Font = Enum.Font.Gotham, Text = hubName.." | -- ms | -- FPS", TextColor3 = WHITE, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 51 })
+    makeDraggable(WaterMark, WaterMark)
+
+    task.spawn(function()
+        while Lhub.Parent do
+            local fps = math.floor(1/RunService.RenderStepped:Wait())
+            local ping = math.floor(game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue())
+            wmText.Text = hubName .. " | " .. ping .. " ms | " .. fps .. " FPS"
+        end
+    end)
+
+    local KeybindList = new("Frame", { Name = "KeybindList", Parent = Lhub, BackgroundColor3 = NOTIF_BG, BorderSizePixel = 0, Position = UDim2.new(1, -190, 0, 40), Size = UDim2.fromOffset(180, 22), ZIndex = 50 })
+    grad(new("Frame", { Parent = KeybindList, BorderSizePixel = 0, Position = UDim2.fromOffset(1, 1), Size = UDim2.new(1, -2, 0, 1), ZIndex = 51 }), PURPLE_KPS)
+    new("TextLabel", { Parent = KeybindList, BackgroundTransparency = 1, Position = UDim2.fromOffset(3, 2), Size = UDim2.new(1, -3, 0, 14), Font = Enum.Font.GothamBold, Text = "KeyBinds", TextColor3 = WHITE, TextSize = 12, ZIndex = 51 })
+    local KeybindsContainer = new("Frame", { Parent = KeybindList, BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 20), Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, ZIndex = 51 })
+    local kbLayout = new("UIListLayout", { Parent = KeybindsContainer, HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4) })
+    makeDraggable(KeybindList, KeybindList)
+
+    local tabs = {}
+    local kbEntries = {}
+
+    local function updateKeybinds()
+        for _, e in ipairs(kbEntries) do
+            local s = e.getter()
+            e.label.Text = e.key.." -- "..e.feature.." / "..(s and "Enabled" or "Disabled")
+            e.label.TextColor3 = s and Color3.fromRGB(174, 90, 199) or SUBTEXT
+        end
+        KeybindList.Size = UDim2.fromOffset(180, 22 + kbLayout.AbsoluteContentSize.Y + 4)
+    end
+
+    local windowObj = {}
+
+    function windowObj:CreateTab(name)
+        local page = new("Frame", { Parent = ScrollFrame, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Visible = false })
+        new("UIListLayout", { Parent = page, SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 6) })
+        
+        local tabFrame = new("Frame", { Parent = TabHolder, BackgroundColor3 = SIDEBAR, BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, 18) })
+        local tabLbl = new("TextLabel", { Parent = tabFrame, BackgroundTransparency = 1, Position = UDim2.fromOffset(10, 0), Size = UDim2.new(1, -10, 1, 0), Font = Enum.Font.Gotham, Text = name, TextColor3 = WHITE, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left })
+        local tabBtn = new("TextButton", { Parent = tabFrame, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "" })
+        
+        local line = new("Frame", { Parent = tabFrame, BackgroundColor3 = WHITE, BorderSizePixel = 0, Position = UDim2.new(0, 0, 0.1, 0), Size = UDim2.new(0, 1, 0.8, 0), Visible = false })
+        grad(line, PURPLE_KPS)
+
+        tabBtn.MouseButton1Click:Connect(function()
+            for _, t in pairs(tabs) do t.page.Visible = false t.line.Visible = false t.f.BackgroundColor3 = SIDEBAR end
+            page.Visible = true; line.Visible = true; tabFrame.BackgroundColor3 = ACTIVE_BG
+        end)
+
+        tabs[name] = { page = page, line = line, f = tabFrame }
+        if #TabHolder:GetChildren() == 2 then 
+            page.Visible = true; line.Visible = true; tabFrame.BackgroundColor3 = ACTIVE_BG
+        end
+
+        local tabObj = {}
+
+        function tabObj:CreateToggle(text, default, callback)
+            local state = default
+            local tglFrame = new("Frame", { Parent = page, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 14) })
+            local bg = new("Frame", { Parent = tglFrame, BackgroundColor3 = TOGBG, Position = UDim2.fromOffset(0, 1), Size = UDim2.fromOffset(12, 12) })
+            local fill = new("Frame", { Parent = bg, BackgroundColor3 = WHITE, Position = UDim2.fromOffset(1, 1), Size = UDim2.fromOffset(10, 10) })
+            local fillG = grad(fill, state and FILL_KPS or DARK_KPS, 90)
+            new("TextLabel", { Parent = tglFrame, BackgroundTransparency = 1, Position = UDim2.new(0.05, 0, 0, 0), Size = UDim2.new(0.9, 0, 1, 0), Font = Enum.Font.Gotham, Text = text, TextColor3 = SUBTEXT, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left })
+            local btn = new("TextButton", { Parent = tglFrame, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "" })
+            btn.MouseButton1Click:Connect(function()
+                state = not state
+                fillG:Destroy(); fillG = grad(fill, state and FILL_KPS or DARK_KPS, 90)
+                callback(state)
+                updateKeybinds()
+            end)
+            return { Get = function() return state end }
+        end
+
+        function tabObj:CreateButton(text, callback)
+            local btnFrame = new("Frame", { Parent = page, BackgroundColor3 = WHITE, Size = UDim2.new(1, 0, 0, 14) })
+            grad(btnFrame, DARK_KPS, 90)
+            local lbl = new("TextLabel", { Parent = btnFrame, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Font = Enum.Font.Gotham, Text = text, TextColor3 = WHITE, TextSize = 11 })
+            local btn = new("TextButton", { Parent = btnFrame, Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Text = "" })
+            btn.MouseButton1Click:Connect(callback)
+        end
+
+        function tabObj:CreateSlider(text, min, max, default, callback)
+            local val = default
+            local sFrame = new("Frame", { Parent = page, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 22) })
+            new("TextLabel", { Parent = sFrame, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 10), Font = Enum.Font.Gotham, Text = text, TextColor3 = WHITE, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left })
+            local vtxt = new("TextLabel", { Parent = sFrame, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 10), Font = Enum.Font.Gotham, Text = val.."/"..max, TextColor3 = WHITE, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Right })
+            local sbg = new("Frame", { Parent = sFrame, BackgroundColor3 = WHITE, Position = UDim2.fromOffset(0, 12), Size = UDim2.new(1, 0, 0, 10) })
+            grad(sbg, DARK_KPS, 90)
+            local fill = new("Frame", { Parent = sbg, BackgroundColor3 = WHITE, Size = UDim2.fromScale((val-min)/(max-min), 1) })
+            grad(fill, FILL_KPS, 90)
+            local function set(v)
+                val = math.clamp(v, min, max)
+                fill.Size = UDim2.fromScale((val-min)/(max-min), 1)
+                vtxt.Text = math.floor(val).."/"..max
+                callback(math.floor(val))
+            end
+            local sliding = false
+            sbg.InputBegan:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then sliding = true end end)
+            UserInputService.InputEnded:Connect(function(i) if i.UserInputType == Enum.UserInputType.MouseButton1 then sliding = false end end)
+            UserInputService.InputChanged:Connect(function(i)
+                if sliding and i.UserInputType == Enum.UserInputType.MouseMovement then
+                    set(min + (max-min) * math.clamp((i.Position.X - sbg.AbsolutePosition.X)/sbg.AbsoluteSize.X, 0, 1))
+                end
+            end)
+        end
+
+        return tabObj
+    end
+
+    function windowObj:AddKeybind(key, name, getter)
+        local lbl = new("TextLabel", { Parent = KeybindsContainer, BackgroundTransparency = 1, Size = UDim2.fromOffset(166, 12), Font = Enum.Font.Gotham, Text = key.." -- "..name.." / Disabled", TextColor3 = SUBTEXT, TextSize = 12 })
+        table.insert(kbEntries, { label = lbl, key = key, feature = name, getter = getter })
+        updateKeybinds()
+    end
+
+    UserInputService.InputBegan:Connect(function(i, g)
+        if not g and i.KeyCode == Enum.KeyCode.Insert then Main.Visible = not Main.Visible end
+    end)
+
+    return windowObj
+end
+
+return Library
